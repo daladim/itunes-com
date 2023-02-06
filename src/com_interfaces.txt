@@ -1,0 +1,1204 @@
+// Copied-and-pasted from oleview.exe (File > View TypeLib, then open iTunes.exe)
+
+[
+  odl,
+  uuid(9FAB0E27-70D7-4E3A-9965-B0C8B8869BB6),
+  helpstring("IITObject Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITObject : IDispatch {
+    [id(0x60020000), helpstring("Returns the four IDs that uniquely identify this object.")]
+    HRESULT GetITObjectIDs(
+                    [out] long* sourceID,
+                    [out] long* playlistID,
+                    [out] long* trackID,
+                    [out] long* databaseID);
+    [id(0x60020001), propget, helpstring("The name of the object.")]
+    HRESULT Name([out, retval] BSTR* Name);
+    [id(0x60020001), propput, helpstring("The name of the object.")]
+    HRESULT Name([in] BSTR Name);
+    [id(0x60020003), propget, helpstring("The index of the object in internal application order (1-based).")]
+    HRESULT Index([out, retval] long* Index);
+    [id(0x60020004), propget, helpstring("The source ID of the object.")]
+    HRESULT sourceID([out, retval] long* sourceID);
+    [id(0x60020005), propget, helpstring("The playlist ID of the object.")]
+    HRESULT playlistID([out, retval] long* playlistID);
+    [id(0x60020006), propget, helpstring("The track ID of the object.")]
+    HRESULT trackID([out, retval] long* trackID);
+    [id(0x60020007), propget, helpstring("The track database ID of the object.")]
+    HRESULT TrackDatabaseID([out, retval] long* databaseID);
+};
+
+[
+  odl,
+  uuid(AEC1C4D3-AEF1-4255-B892-3E3D13ADFDF9),
+  helpstring("IITSource Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITSource : IITObject {
+    [id(0x60030000), propget, helpstring("The source kind.")]
+    HRESULT Kind([out, retval] ITSourceKind* Kind);
+    [id(0x60030001), propget, helpstring("The total size of the source, if it has a fixed size.")]
+    HRESULT Capacity([out, retval] double* Capacity);
+    [id(0x60030002), propget, helpstring("The free space on the source, if it has a fixed size.")]
+    HRESULT FreeSpace([out, retval] double* FreeSpace);
+    [id(0x60030003), propget, helpstring("Returns a collection of playlists.")]
+    HRESULT Playlists([out, retval] IITPlaylistCollection** iPlaylistCollection);
+};
+
+[
+  odl,
+  uuid(FF194254-909D-4437-9C50-3AAC2AE6305C),
+  helpstring("IITPlaylistCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITPlaylistCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of playlists in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITPlaylist object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITPlaylist** iPlaylist);
+    [id(0x60020002), propget, helpstring("Returns an IITPlaylist object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITPlaylist** iPlaylist);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+    [id(0x60020004), propget, helpstring("Returns an IITPlaylist object with the specified persistent ID.")]
+    HRESULT ItemByPersistentID(
+                    [in] long highID,
+                    [in] long lowID,
+                    [out, retval] IITPlaylist** iPlaylist);
+};
+
+[
+  odl,
+  uuid(3D5E072F-2A77-4B17-9E73-E03B77CCCCA9),
+  helpstring("IITPlaylist Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITPlaylist : IITObject {
+    [id(0x60030000), helpstring("Delete this playlist.")]
+    HRESULT Delete();
+    [id(0x60030001), helpstring("Start playing the first track in this playlist.")]
+    HRESULT PlayFirstTrack();
+    [id(0x60030002), helpstring("Print this playlist.")]
+    HRESULT Print(
+                    [in] VARIANT_BOOL showPrintDialog,
+                    [in] ITPlaylistPrintKind printKind,
+                    [in] BSTR theme);
+    [id(0x60030003), helpstring("Search tracks in this playlist for the specified string.")]
+    HRESULT Search(
+                    [in] BSTR searchText,
+                    [in] ITPlaylistSearchField searchFields,
+                    [out, retval] IITTrackCollection** iTrackCollection);
+    [id(0x60030004), propget, helpstring("The playlist kind.")]
+    HRESULT Kind([out, retval] ITPlaylistKind* Kind);
+    [id(0x60030005), propget, helpstring("The source that contains this playlist.")]
+    HRESULT Source([out, retval] IITSource** iSource);
+    [id(0x60030006), propget, helpstring("The total length of all songs in the playlist (in seconds).")]
+    HRESULT Duration([out, retval] long* Duration);
+    [id(0x60030007), propget, helpstring("True if songs in the playlist are played in random order.")]
+    HRESULT Shuffle([out, retval] VARIANT_BOOL* isShuffle);
+    [id(0x60030007), propput, helpstring("True if songs in the playlist are played in random order.")]
+    HRESULT Shuffle([in] VARIANT_BOOL isShuffle);
+    [id(0x60030009), propget, helpstring("The total size of all songs in the playlist (in bytes).")]
+    HRESULT Size([out, retval] double* Size);
+    [id(0x6003000a), propget, helpstring("The playback repeat mode.")]
+    HRESULT SongRepeat([out, retval] ITPlaylistRepeatMode* repeatMode);
+    [id(0x6003000a), propput, helpstring("The playback repeat mode.")]
+    HRESULT SongRepeat([in] ITPlaylistRepeatMode repeatMode);
+    [id(0x6003000c), propget, helpstring("The total length of all songs in the playlist (in MM:SS format).")]
+    HRESULT Time([out, retval] BSTR* Time);
+    [id(0x6003000d), propget, helpstring("True if the playlist is visible in the Source list.")]
+    HRESULT Visible([out, retval] VARIANT_BOOL* isVisible);
+    [id(0x6003000e), propget, helpstring("Returns a collection of tracks in this playlist.")]
+    HRESULT Tracks([out, retval] IITTrackCollection** iTrackCollection);
+};
+
+[
+  odl,
+  uuid(755D76F1-6B85-4CE4-8F5F-F88D9743DCD8),
+  helpstring("IITTrackCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITTrackCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of tracks in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITTrack object corresponding to the given fixed index, where the index is independent of the play order (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITTrack** iTrack);
+    [id(0x60020002), propget, helpstring("Returns an IITTrack object corresponding to the given index, where the index is defined by the play order of the playlist containing the track collection (1-based).")]
+    HRESULT ItemByPlayOrder(
+                    [in] long Index,
+                    [out, retval] IITTrack** iTrack);
+    [id(0x60020003), propget, helpstring("Returns an IITTrack object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITTrack** iTrack);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+    [id(0x60020005), propget, helpstring("Returns an IITTrack object with the specified persistent ID.")]
+    HRESULT ItemByPersistentID(
+                    [in] long highID,
+                    [in] long lowID,
+                    [out, retval] IITTrack** iTrack);
+};
+
+[
+  odl,
+  uuid(4CB0915D-1E54-4727-BAF3-CE6CC9A225A1),
+  helpstring("IITTrack Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITTrack : IITObject {
+    [id(0x60030000), helpstring("Delete this track.")]
+    HRESULT Delete();
+    [id(0x60030001), helpstring("Start playing this track.")]
+    HRESULT Play();
+    [id(0x60030002), helpstring("Add artwork from an image file to this track.")]
+    HRESULT AddArtworkFromFile(
+                    [in] BSTR filePath,
+                    [out, retval] IITArtwork** iArtwork);
+    [id(0x60030003), propget, helpstring("The track kind.")]
+    HRESULT Kind([out, retval] ITTrackKind* Kind);
+    [id(0x60030004), propget, helpstring("The playlist that contains this track.")]
+    HRESULT Playlist([out, retval] IITPlaylist** iPlaylist);
+    [id(0x60030005), propget, helpstring("The album containing the track.")]
+    HRESULT Album([out, retval] BSTR* Album);
+    [id(0x60030005), propput, helpstring("The album containing the track.")]
+    HRESULT Album([in] BSTR Album);
+    [id(0x60030007), propget, helpstring("The artist/source of the track.")]
+    HRESULT Artist([out, retval] BSTR* Artist);
+    [id(0x60030007), propput, helpstring("The artist/source of the track.")]
+    HRESULT Artist([in] BSTR Artist);
+    [id(0x60030009), propget, helpstring("The bit rate of the track (in kbps).")]
+    HRESULT BitRate([out, retval] long* BitRate);
+    [id(0x6003000a), propget, helpstring("The tempo of the track (in beats per minute).")]
+    HRESULT BPM([out, retval] long* beatsPerMinute);
+    [id(0x6003000a), propput, helpstring("The tempo of the track (in beats per minute).")]
+    HRESULT BPM([in] long beatsPerMinute);
+    [id(0x6003000c), propget, helpstring("Freeform notes about the track.")]
+    HRESULT Comment([out, retval] BSTR* Comment);
+    [id(0x6003000c), propput, helpstring("Freeform notes about the track.")]
+    HRESULT Comment([in] BSTR Comment);
+    [id(0x6003000e), propget, helpstring("True if this track is from a compilation album.")]
+    HRESULT Compilation([out, retval] VARIANT_BOOL* isCompilation);
+    [id(0x6003000e), propput, helpstring("True if this track is from a compilation album.")]
+    HRESULT Compilation([in] VARIANT_BOOL isCompilation);
+    [id(0x60030010), propget, helpstring("The composer of the track.")]
+    HRESULT Composer([out, retval] BSTR* Composer);
+    [id(0x60030010), propput, helpstring("The composer of the track.")]
+    HRESULT Composer([in] BSTR Composer);
+    [id(0x60030012), propget, helpstring("The date the track was added to the playlist.")]
+    HRESULT DateAdded([out, retval] DATE* DateAdded);
+    [id(0x60030013), propget, helpstring("The total number of discs in the source album.")]
+    HRESULT DiscCount([out, retval] long* DiscCount);
+    [id(0x60030013), propput, helpstring("The total number of discs in the source album.")]
+    HRESULT DiscCount([in] long DiscCount);
+    [id(0x60030015), propget, helpstring("The index of the disc containing the track on the source album.")]
+    HRESULT DiscNumber([out, retval] long* DiscNumber);
+    [id(0x60030015), propput, helpstring("The index of the disc containing the track on the source album.")]
+    HRESULT DiscNumber([in] long DiscNumber);
+    [id(0x60030017), propget, helpstring("The length of the track (in seconds).")]
+    HRESULT Duration([out, retval] long* Duration);
+    [id(0x60030018), propget, helpstring("True if the track is checked for playback.")]
+    HRESULT Enabled([out, retval] VARIANT_BOOL* isEnabled);
+    [id(0x60030018), propput, helpstring("True if the track is checked for playback.")]
+    HRESULT Enabled([in] VARIANT_BOOL isEnabled);
+    [id(0x6003001a), propget, helpstring("The name of the EQ preset of the track.")]
+    HRESULT EQ([out, retval] BSTR* EQ);
+    [id(0x6003001a), propput, helpstring("The name of the EQ preset of the track.")]
+    HRESULT EQ([in] BSTR EQ);
+    [id(0x6003001c), propput, helpstring("The stop time of the track (in seconds).")]
+    HRESULT Finish([in] long Finish);
+    [id(0x6003001c), propget, helpstring("The stop time of the track (in seconds).")]
+    HRESULT Finish([out, retval] long* Finish);
+    [id(0x6003001e), propget, helpstring("The music/audio genre (category) of the track.")]
+    HRESULT Genre([out, retval] BSTR* Genre);
+    [id(0x6003001e), propput, helpstring("The music/audio genre (category) of the track.")]
+    HRESULT Genre([in] BSTR Genre);
+    [id(0x60030020), propget, helpstring("The grouping (piece) of the track.  Generally used to denote movements within classical work.")]
+    HRESULT Grouping([out, retval] BSTR* Grouping);
+    [id(0x60030020), propput, helpstring("The grouping (piece) of the track.  Generally used to denote movements within classical work.")]
+    HRESULT Grouping([in] BSTR Grouping);
+    [id(0x60030022), propget, helpstring("A text description of the track.")]
+    HRESULT KindAsString([out, retval] BSTR* Kind);
+    [id(0x60030023), propget, helpstring("The modification date of the content of the track.")]
+    HRESULT ModificationDate([out, retval] DATE* dateModified);
+    [id(0x60030024), propget, helpstring("The number of times the track has been played.")]
+    HRESULT PlayedCount([out, retval] long* PlayedCount);
+    [id(0x60030024), propput, helpstring("The number of times the track has been played.")]
+    HRESULT PlayedCount([in] long PlayedCount);
+    [id(0x60030026), propget, helpstring("The date and time the track was last played.  A value of zero means no played date.")]
+    HRESULT PlayedDate([out, retval] DATE* PlayedDate);
+    [id(0x60030026), propput, helpstring("The date and time the track was last played.  A value of zero means no played date.")]
+    HRESULT PlayedDate([in] DATE PlayedDate);
+    [id(0x60030028), propget, helpstring("The play order index of the track in the owner playlist (1-based).")]
+    HRESULT PlayOrderIndex([out, retval] long* Index);
+    [id(0x60030029), propget, helpstring("The rating of the track (0 to 100).")]
+    HRESULT Rating([out, retval] long* Rating);
+    [id(0x60030029), propput, helpstring("The rating of the track (0 to 100).")]
+    HRESULT Rating([in] long Rating);
+    [id(0x6003002b), propget, helpstring("The sample rate of the track (in Hz).")]
+    HRESULT SampleRate([out, retval] long* SampleRate);
+    [id(0x6003002c), propget, helpstring("The size of the track (in bytes).")]
+    HRESULT Size([out, retval] long* Size);
+    [id(0x6003002d), propget, helpstring("The start time of the track (in seconds).")]
+    HRESULT Start([out, retval] long* Start);
+    [id(0x6003002d), propput, helpstring("The start time of the track (in seconds).")]
+    HRESULT Start([in] long Start);
+    [id(0x6003002f), propget, helpstring("The length of the track (in MM:SS format).")]
+    HRESULT Time([out, retval] BSTR* Time);
+    [id(0x60030030), propget, helpstring("The total number of tracks on the source album.")]
+    HRESULT TrackCount([out, retval] long* TrackCount);
+    [id(0x60030030), propput, helpstring("The total number of tracks on the source album.")]
+    HRESULT TrackCount([in] long TrackCount);
+    [id(0x60030032), propget, helpstring("The index of the track on the source album.")]
+    HRESULT TrackNumber([out, retval] long* TrackNumber);
+    [id(0x60030032), propput, helpstring("The index of the track on the source album.")]
+    HRESULT TrackNumber([in] long TrackNumber);
+    [id(0x60030034), propget, helpstring("The relative volume adjustment of the track (-100% to 100%).")]
+    HRESULT VolumeAdjustment([out, retval] long* VolumeAdjustment);
+    [id(0x60030034), propput, helpstring("The relative volume adjustment of the track (-100% to 100%).")]
+    HRESULT VolumeAdjustment([in] long VolumeAdjustment);
+    [id(0x60030036), propget, helpstring("The year the track was recorded/released.")]
+    HRESULT Year([out, retval] long* Year);
+    [id(0x60030036), propput, helpstring("The year the track was recorded/released.")]
+    HRESULT Year([in] long Year);
+    [id(0x60030038), propget, helpstring("Returns a collection of artwork.")]
+    HRESULT Artwork([out, retval] IITArtworkCollection** iArtworkCollection);
+};
+
+[
+  odl,
+  uuid(D0A6C1F8-BF3D-4CD8-AC47-FE32BDD17257),
+  helpstring("IITArtwork Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITArtwork : IDispatch {
+    [id(0x60020000), helpstring("Delete this piece of artwork from the track.")]
+    HRESULT Delete();
+    [id(0x60020001), helpstring("Replace existing artwork data with new artwork from an image file.")]
+    HRESULT SetArtworkFromFile([in] BSTR filePath);
+    [id(0x60020002), helpstring("Save artwork data to an image file.")]
+    HRESULT SaveArtworkToFile([in] BSTR filePath);
+    [id(0x60020003), propget, helpstring("The format of the artwork.")]
+    HRESULT Format([out, retval] ITArtworkFormat* Format);
+    [id(0x60020004), propget, helpstring("True if the artwork was downloaded by iTunes.")]
+    HRESULT IsDownloadedArtwork([out, retval] VARIANT_BOOL* IsDownloadedArtwork);
+    [id(0x60020005), propget, helpstring("The description for the artwork.")]
+    HRESULT Description([out, retval] BSTR* Description);
+    [id(0x60020005), propput, helpstring("The description for the artwork.")]
+    HRESULT Description([in] BSTR Description);
+};
+
+[
+  odl,
+  uuid(BF2742D7-418C-4858-9AF9-2981B062D23E),
+  helpstring("IITArtworkCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITArtworkCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of pieces of artwork in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITArtwork object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITArtwork** iArtwork);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+};
+
+[
+  odl,
+  uuid(2FF6CE20-FF87-4183-B0B3-F323D047AF41),
+  helpstring("IITSourceCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITSourceCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of sources in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITSource object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITSource** iSource);
+    [id(0x60020002), propget, helpstring("Returns an IITSource object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITSource** iSource);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+    [id(0x60020004), propget, helpstring("Returns an IITSource object with the specified persistent ID.")]
+    HRESULT ItemByPersistentID(
+                    [in] long highID,
+                    [in] long lowID,
+                    [out, retval] IITSource** iSource);
+};
+
+[
+  odl,
+  uuid(1CF95A1C-55FE-4F45-A2D3-85AC6C504A73),
+  helpstring("IITEncoder Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITEncoder : IDispatch {
+    [id(0x60020000), propget, helpstring("The name of the the encoder.")]
+    HRESULT Name([out, retval] BSTR* Name);
+    [id(0x60020001), propget, helpstring("The data format created by the encoder.")]
+    HRESULT Format([out, retval] BSTR* Format);
+};
+
+[
+  odl,
+  uuid(8862BCA9-168D-4549-A9D5-ADB35E553BA6),
+  helpstring("IITEncoderCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITEncoderCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of encoders in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITEncoder object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITEncoder** iEncoder);
+    [id(0x60020002), propget, helpstring("Returns an IITEncoder object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITEncoder** iEncoder);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+};
+
+[
+  odl,
+  uuid(5BE75F4F-68FA-4212-ACB7-BE44EA569759),
+  helpstring("IITEQPreset Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITEQPreset : IDispatch {
+    [id(0x60020000), propget, helpstring("The name of the the EQ preset.")]
+    HRESULT Name([out, retval] BSTR* Name);
+    [id(0x60020001), propget, helpstring("True if this EQ preset can be modified.")]
+    HRESULT Modifiable([out, retval] VARIANT_BOOL* isModifiable);
+    [id(0x60020002), propget, helpstring("The equalizer preamp level (-12.0 db to +12.0 db).")]
+    HRESULT Preamp([out, retval] double* level);
+    [id(0x60020002), propput, helpstring("The equalizer preamp level (-12.0 db to +12.0 db).")]
+    HRESULT Preamp([in] double level);
+    [id(0x60020004), propget, helpstring("The equalizer 32Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band1([out, retval] double* level);
+    [id(0x60020004), propput, helpstring("The equalizer 32Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band1([in] double level);
+    [id(0x60020006), propget, helpstring("The equalizer 64Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band2([out, retval] double* level);
+    [id(0x60020006), propput, helpstring("The equalizer 64Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band2([in] double level);
+    [id(0x60020008), propget, helpstring("The equalizer 125Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band3([out, retval] double* level);
+    [id(0x60020008), propput, helpstring("The equalizer 125Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band3([in] double level);
+    [id(0x6002000a), propget, helpstring("The equalizer 250Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band4([out, retval] double* level);
+    [id(0x6002000a), propput, helpstring("The equalizer 250Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band4([in] double level);
+    [id(0x6002000c), propget, helpstring("The equalizer 500Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band5([out, retval] double* level);
+    [id(0x6002000c), propput, helpstring("The equalizer 500Hz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band5([in] double level);
+    [id(0x6002000e), propget, helpstring("The equalizer 1KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band6([out, retval] double* level);
+    [id(0x6002000e), propput, helpstring("The equalizer 1KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band6([in] double level);
+    [id(0x60020010), propget, helpstring("The equalizer 2KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band7([out, retval] double* level);
+    [id(0x60020010), propput, helpstring("The equalizer 2KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band7([in] double level);
+    [id(0x60020012), propget, helpstring("The equalizer 4KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band8([out, retval] double* level);
+    [id(0x60020012), propput, helpstring("The equalizer 4KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band8([in] double level);
+    [id(0x60020014), propget, helpstring("The equalizer 8KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band9([out, retval] double* level);
+    [id(0x60020014), propput, helpstring("The equalizer 8KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band9([in] double level);
+    [id(0x60020016), propget, helpstring("The equalizer 16KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band10([out, retval] double* level);
+    [id(0x60020016), propput, helpstring("The equalizer 16KHz band level (-12.0 db to +12.0 db).")]
+    HRESULT Band10([in] double level);
+    [id(0x60020018), helpstring("Delete this EQ preset.")]
+    HRESULT Delete([in] VARIANT_BOOL updateAllTracks);
+    [id(0x60020019), helpstring("Rename this EQ preset.")]
+    HRESULT Rename(
+                    [in] BSTR newName,
+                    [in] VARIANT_BOOL updateAllTracks);
+};
+
+[
+  odl,
+  uuid(AEF4D111-3331-48DA-B0C2-B468D5D61D08),
+  helpstring("IITEQPresetCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITEQPresetCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of EQ presets in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITEQPreset object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITEQPreset** iEQPreset);
+    [id(0x60020002), propget, helpstring("Returns an IITEQPreset object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITEQPreset** iEQPreset);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+};
+
+[
+  odl,
+  uuid(206479C9-FE32-4F9B-A18A-475AC939B479),
+  helpstring("IITOperationStatus Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITOperationStatus : IDispatch {
+    [id(0x60020000), propget, helpstring("True if the operation is still in progress.")]
+    HRESULT InProgress([out, retval] VARIANT_BOOL* isInProgress);
+    [id(0x60020001), propget, helpstring("Returns a collection containing the tracks that were generated by the operation.")]
+    HRESULT Tracks([out, retval] IITTrackCollection** iTrackCollection);
+};
+
+[
+  odl,
+  uuid(7063AAF6-ABA0-493B-B4FC-920A9F105875),
+  helpstring("IITConvertOperationStatus Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITConvertOperationStatus : IITOperationStatus {
+    [id(0x60030000), helpstring("Returns the current conversion status.")]
+    HRESULT GetConversionStatus(
+                    [out] BSTR* trackName,
+                    [out] long* progressValue,
+                    [out] long* maxProgressValue);
+    [id(0x60030001), helpstring("Stops the current conversion operation.")]
+    HRESULT StopConversion();
+    [id(0x60030002), propget, helpstring("Returns the name of the track currently being converted.")]
+    HRESULT trackName([out, retval] BSTR* trackName);
+    [id(0x60030003), propget, helpstring("Returns the current progress value for the track being converted.")]
+    HRESULT progressValue([out, retval] long* progressValue);
+    [id(0x60030004), propget, helpstring("Returns the maximum progress value for the track being converted.")]
+    HRESULT maxProgressValue([out, retval] long* maxProgressValue);
+};
+
+[
+  odl,
+  uuid(53AE1704-491C-4289-94A0-958815675A3D),
+  helpstring("IITLibraryPlaylist Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITLibraryPlaylist : IITPlaylist {
+    [id(0x60040000), helpstring("Add the specified file path to the library.")]
+    HRESULT AddFile(
+                    [in] BSTR filePath,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x60040001), helpstring("Add the specified array of file paths to the library. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.")]
+    HRESULT AddFiles(
+                    [in] VARIANT* filePaths,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x60040002), helpstring("Add the specified streaming audio URL to the library.")]
+    HRESULT AddURL(
+                    [in] BSTR URL,
+                    [out, retval] IITURLTrack** iURLTrack);
+    [id(0x60040003), helpstring("Add the specified track to the library.  iTrackToAdd is a VARIANT of type VT_DISPATCH that points to an IITTrack.")]
+    HRESULT AddTrack(
+                    [in] VARIANT* iTrackToAdd,
+                    [out, retval] IITTrack** iAddedTrack);
+};
+
+[
+  odl,
+  uuid(1116E3B5-29FD-4393-A7BD-454E5E327900),
+  helpstring("IITURLTrack Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITURLTrack : IITTrack {
+    [id(0x60040000), propget, helpstring("The URL of the stream represented by this track.")]
+    HRESULT URL([out, retval] BSTR* URL);
+    [id(0x60040000), propput, helpstring("The URL of the stream represented by this track.")]
+    HRESULT URL([in] BSTR URL);
+    [id(0x60040002), propget, helpstring("True if this is a podcast track.")]
+    HRESULT Podcast([out, retval] VARIANT_BOOL* isPodcast);
+    [id(0x60040003), helpstring("Update the podcast feed for this track.")]
+    HRESULT UpdatePodcastFeed();
+    [id(0x60040004), helpstring("Start downloading the podcast episode that corresponds to this track.")]
+    HRESULT DownloadPodcastEpisode();
+    [id(0x60040005), propget, helpstring("Category for the track.")]
+    HRESULT Category([out, retval] BSTR* Category);
+    [id(0x60040005), propput, helpstring("Category for the track.")]
+    HRESULT Category([in] BSTR Category);
+    [id(0x60040007), propget, helpstring("Description for the track.")]
+    HRESULT Description([out, retval] BSTR* Description);
+    [id(0x60040007), propput, helpstring("Description for the track.")]
+    HRESULT Description([in] BSTR Description);
+    [id(0x60040009), propget, helpstring("Long description for the track.")]
+    HRESULT LongDescription([out, retval] BSTR* LongDescription);
+    [id(0x60040009), propput, helpstring("Long description for the track.")]
+    HRESULT LongDescription([in] BSTR LongDescription);
+    [id(0x6004000b), helpstring("Reveal the track in the main browser window.")]
+    HRESULT Reveal();
+    [id(0x6004000c), propget, helpstring("The user or computed rating of the album that this track belongs to (0 to 100).")]
+    HRESULT AlbumRating([out, retval] long* Rating);
+    [id(0x6004000c), propput, helpstring("The user or computed rating of the album that this track belongs to (0 to 100).")]
+    HRESULT AlbumRating([in] long Rating);
+    [id(0x6004000e), propget, helpstring("The album rating kind.")]
+    HRESULT AlbumRatingKind([out, retval] ITRatingKind* ratingKind);
+    [id(0x6004000f), propget, helpstring("The track rating kind.")]
+    HRESULT ratingKind([out, retval] ITRatingKind* ratingKind);
+    [id(0x60040010), propget, helpstring("Returns a collection of playlists that contain the song that this track represents.")]
+    HRESULT Playlists([out, retval] IITPlaylistCollection** iPlaylistCollection);
+};
+
+[
+  odl,
+  uuid(0A504DED-A0B5-465A-8A94-50E20D7DF692),
+  helpstring("IITUserPlaylist Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITUserPlaylist : IITPlaylist {
+    [id(0x60040000), helpstring("Add the specified file path to the user playlist.")]
+    HRESULT AddFile(
+                    [in] BSTR filePath,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x60040001), helpstring("Add the specified array of file paths to the user playlist. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.")]
+    HRESULT AddFiles(
+                    [in] VARIANT* filePaths,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x60040002), helpstring("Add the specified streaming audio URL to the user playlist.")]
+    HRESULT AddURL(
+                    [in] BSTR URL,
+                    [out, retval] IITURLTrack** iURLTrack);
+    [id(0x60040003), helpstring("Add the specified track to the user playlist.  iTrackToAdd is a VARIANT of type VT_DISPATCH that points to an IITTrack.")]
+    HRESULT AddTrack(
+                    [in] VARIANT* iTrackToAdd,
+                    [out, retval] IITTrack** iAddedTrack);
+    [id(0x60040004), propget, helpstring("True if the user playlist is being shared.")]
+    HRESULT Shared([out, retval] VARIANT_BOOL* isShared);
+    [id(0x60040004), propput, helpstring("True if the user playlist is being shared.")]
+    HRESULT Shared([in] VARIANT_BOOL isShared);
+    [id(0x60040006), propget, helpstring("True if this is a smart playlist.")]
+    HRESULT Smart([out, retval] VARIANT_BOOL* isSmart);
+    [id(0x60040007), propget, helpstring("The playlist special kind.")]
+    HRESULT SpecialKind([out, retval] ITUserPlaylistSpecialKind* SpecialKind);
+    [id(0x60040008), propget, helpstring("The parent of this playlist.")]
+    HRESULT Parent([out, retval] IITUserPlaylist** iParentPlayList);
+    [id(0x60040009), helpstring("Creates a new playlist in a folder playlist.")]
+    HRESULT CreatePlaylist(
+                    [in] BSTR playlistName,
+                    [out, retval] IITPlaylist** iPlaylist);
+    [id(0x6004000a), helpstring("Creates a new folder in a folder playlist.")]
+    HRESULT CreateFolder(
+                    [in] BSTR folderName,
+                    [out, retval] IITPlaylist** iFolder);
+    [id(0x60040008), propput, helpstring("The parent of this playlist.")]
+    HRESULT Parent([in] VARIANT* iParentPlayList);
+    [id(0x6004000c), helpstring("Reveal the user playlist in the main browser window.")]
+    HRESULT Reveal();
+};
+
+[
+  odl,
+  uuid(340F3315-ED72-4C09-9ACF-21EB4BDF9931),
+  helpstring("IITVisual Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITVisual : IDispatch {
+    [id(0x60020000), propget, helpstring("The name of the the visual plug-in.")]
+    HRESULT Name([out, retval] BSTR* Name);
+};
+
+[
+  odl,
+  uuid(88A4CCDD-114F-4043-B69B-84D4E6274957),
+  helpstring("IITVisualCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITVisualCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of visual plug-ins in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITVisual object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITVisual** iVisual);
+    [id(0x60020002), propget, helpstring("Returns an IITVisual object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITVisual** iVisual);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+};
+
+[
+  odl,
+  uuid(370D7BE0-3A89-4A42-B902-C75FC138BE09),
+  helpstring("IITWindow Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITWindow : IDispatch {
+    [id(0x60020000), propget, helpstring("The title of the window.")]
+    HRESULT Name([out, retval] BSTR* Name);
+    [id(0x60020001), propget, helpstring("The window kind.")]
+    HRESULT Kind([out, retval] ITWindowKind* Kind);
+    [id(0x60020002), propget, helpstring("True if the window is visible. Note that the main browser window cannot be hidden.")]
+    HRESULT Visible([out, retval] VARIANT_BOOL* isVisible);
+    [id(0x60020002), propput, helpstring("True if the window is visible. Note that the main browser window cannot be hidden.")]
+    HRESULT Visible([in] VARIANT_BOOL isVisible);
+    [id(0x60020004), propget, helpstring("True if the window is resizable.")]
+    HRESULT Resizable([out, retval] VARIANT_BOOL* isResizable);
+    [id(0x60020005), propget, helpstring("True if the window is minimized.")]
+    HRESULT Minimized([out, retval] VARIANT_BOOL* isMinimized);
+    [id(0x60020005), propput, helpstring("True if the window is minimized.")]
+    HRESULT Minimized([in] VARIANT_BOOL isMinimized);
+    [id(0x60020007), propget, helpstring("True if the window is maximizable.")]
+    HRESULT Maximizable([out, retval] VARIANT_BOOL* isMaximizable);
+    [id(0x60020008), propget, helpstring("True if the window is maximized.")]
+    HRESULT Maximized([out, retval] VARIANT_BOOL* isMaximized);
+    [id(0x60020008), propput, helpstring("True if the window is maximized.")]
+    HRESULT Maximized([in] VARIANT_BOOL isMaximized);
+    [id(0x6002000a), propget, helpstring("True if the window is zoomable.")]
+    HRESULT Zoomable([out, retval] VARIANT_BOOL* isZoomable);
+    [id(0x6002000b), propget, helpstring("True if the window is zoomed.")]
+    HRESULT Zoomed([out, retval] VARIANT_BOOL* isZoomed);
+    [id(0x6002000b), propput, helpstring("True if the window is zoomed.")]
+    HRESULT Zoomed([in] VARIANT_BOOL isZoomed);
+    [id(0x6002000d), propget, helpstring("The screen coordinate of the top edge of the window.")]
+    HRESULT Top([out, retval] long* Top);
+    [id(0x6002000d), propput, helpstring("The screen coordinate of the top edge of the window.")]
+    HRESULT Top([in] long Top);
+    [id(0x6002000f), propget, helpstring("The screen coordinate of the left edge of the window.")]
+    HRESULT Left([out, retval] long* Left);
+    [id(0x6002000f), propput, helpstring("The screen coordinate of the left edge of the window.")]
+    HRESULT Left([in] long Left);
+    [id(0x60020011), propget, helpstring("The screen coordinate of the bottom edge of the window.")]
+    HRESULT Bottom([out, retval] long* Bottom);
+    [id(0x60020011), propput, helpstring("The screen coordinate of the bottom edge of the window.")]
+    HRESULT Bottom([in] long Bottom);
+    [id(0x60020013), propget, helpstring("The screen coordinate of the right edge of the window.")]
+    HRESULT Right([out, retval] long* Right);
+    [id(0x60020013), propput, helpstring("The screen coordinate of the right edge of the window.")]
+    HRESULT Right([in] long Right);
+    [id(0x60020015), propget, helpstring("The width of the window.")]
+    HRESULT Width([out, retval] long* Width);
+    [id(0x60020015), propput, helpstring("The width of the window.")]
+    HRESULT Width([in] long Width);
+    [id(0x60020017), propget, helpstring("The height of the window.")]
+    HRESULT Height([out, retval] long* Height);
+    [id(0x60020017), propput, helpstring("The height of the window.")]
+    HRESULT Height([in] long Height);
+};
+
+[
+  odl,
+  uuid(C999F455-C4D5-4AA4-8277-F99753699974),
+  helpstring("IITBrowserWindow Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITBrowserWindow : IITWindow {
+    [id(0x60030000), propget, helpstring("True if window is in MiniPlayer mode.")]
+    HRESULT MiniPlayer([out, retval] VARIANT_BOOL* isMiniPlayer);
+    [id(0x60030000), propput, helpstring("True if window is in MiniPlayer mode.")]
+    HRESULT MiniPlayer([in] VARIANT_BOOL isMiniPlayer);
+    [id(0x60030002), propget, helpstring("Returns a collection containing the currently selected track or tracks.")]
+    HRESULT SelectedTracks([out, retval] IITTrackCollection** iTrackCollection);
+    [id(0x60030003), propget, helpstring("The currently selected playlist in the Source list.")]
+    HRESULT SelectedPlaylist([out, retval] IITPlaylist** iPlaylist);
+    [id(0x60030003), propput, helpstring("The currently selected playlist in the Source list.")]
+    HRESULT SelectedPlaylist([in] VARIANT* iPlaylist);
+};
+
+[
+  odl,
+  uuid(3D8DE381-6C0E-481F-A865-E2385F59FA43),
+  helpstring("IITWindowCollection Interface"),
+  dual,
+  oleautomation
+]
+interface IITWindowCollection : IDispatch {
+    [id(0x60020000), propget, helpstring("Returns the number of windows in the collection.")]
+    HRESULT Count([out, retval] long* Count);
+    [id(00000000), propget, helpstring("Returns an IITWindow object corresponding to the given index (1-based).")]
+    HRESULT Item(
+                    [in] long Index,
+                    [out, retval] IITWindow** iWindow);
+    [id(0x60020002), propget, helpstring("Returns an IITWindow object with the specified name.")]
+    HRESULT ItemByName(
+                    [in] BSTR Name,
+                    [out, retval] IITWindow** iWindow);
+    [id(0xfffffffc), propget, restricted, helpstring("Returns an IEnumVARIANT object which can enumerate the collection.")]
+    HRESULT _NewEnum([out, retval] IUnknown** iEnumerator);
+};
+
+[
+  odl,
+  uuid(9DD6680B-3EDC-40DB-A771-E6FE4832E34A),
+  helpstring("IiTunes Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IiTunes : IDispatch {
+    [id(0x60020000), helpstring("Reposition to the beginning of the current track or go to the previous track if already at start of current track.")]
+    HRESULT BackTrack();
+    [id(0x60020001), helpstring("Skip forward in a playing track.")]
+    HRESULT FastForward();
+    [id(0x60020002), helpstring("Advance to the next track in the current playlist.")]
+    HRESULT NextTrack();
+    [id(0x60020003), helpstring("Pause playback.")]
+    HRESULT Pause();
+    [id(0x60020004), helpstring("Play the currently targeted track.")]
+    HRESULT Play();
+    [id(0x60020005), helpstring("Play the specified file path, adding it to the library if not already present.")]
+    HRESULT PlayFile([in] BSTR filePath);
+    [id(0x60020006), helpstring("Toggle the playing/paused state of the current track.")]
+    HRESULT PlayPause();
+    [id(0x60020007), helpstring("Return to the previous track in the current playlist.")]
+    HRESULT PreviousTrack();
+    [id(0x60020008), helpstring("Disable fast forward/rewind and resume playback, if playing.")]
+    HRESULT Resume();
+    [id(0x60020009), helpstring("Skip backwards in a playing track.")]
+    HRESULT Rewind();
+    [id(0x6002000a), helpstring("Stop playback.")]
+    HRESULT Stop();
+    [id(0x6002000b), helpstring("Start converting the specified file path.")]
+    HRESULT ConvertFile(
+                    [in] BSTR filePath,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x6002000c), helpstring("Start converting the specified array of file paths. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.")]
+    HRESULT ConvertFiles(
+                    [in] VARIANT* filePaths,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x6002000d), helpstring("Start converting the specified track.  iTrackToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrack.")]
+    HRESULT ConvertTrack(
+                    [in] VARIANT* iTrackToConvert,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x6002000e), helpstring("Start converting the specified tracks.  iTracksToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrackCollection.")]
+    HRESULT ConvertTracks(
+                    [in] VARIANT* iTracksToConvert,
+                    [out, retval] IITOperationStatus** iStatus);
+    [id(0x6002000f), helpstring("Returns true if this version of the iTunes type library is compatible with the specified version.")]
+    HRESULT CheckVersion(
+                    [in] long majorVersion,
+                    [in] long minorVersion,
+                    [out, retval] VARIANT_BOOL* isCompatible);
+    [id(0x60020010), helpstring("Returns an IITObject corresponding to the specified IDs.")]
+    HRESULT GetITObjectByID(
+                    [in] long sourceID,
+                    [in] long playlistID,
+                    [in] long trackID,
+                    [in] long databaseID,
+                    [out, retval] IITObject** iObject);
+    [id(0x60020011), helpstring("Creates a new playlist in the main library.")]
+    HRESULT CreatePlaylist(
+                    [in] BSTR playlistName,
+                    [out, retval] IITPlaylist** iPlaylist);
+    [id(0x60020012), helpstring("Open the specified iTunes Store or streaming audio URL.")]
+    HRESULT OpenURL([in] BSTR URL);
+    [id(0x60020013), helpstring("Go to the iTunes Store home page.")]
+    HRESULT GotoMusicStoreHomePage();
+    [id(0x60020014), helpstring("Update the contents of the iPod.")]
+    HRESULT UpdateIPod();
+    [id(0x60020015)]
+    HRESULT Authorize(
+                    [in] long numElems,
+                    [in] VARIANT* data,
+                    [in] BSTR* names);
+    [id(0x60020016), helpstring("Exits the iTunes application.")]
+    HRESULT Quit();
+    [id(0x60020017), propget, helpstring("Returns a collection of music sources (music library, CD, device, etc.).")]
+    HRESULT Sources([out, retval] IITSourceCollection** iSourceCollection);
+    [id(0x60020018), propget, helpstring("Returns a collection of encoders.")]
+    HRESULT Encoders([out, retval] IITEncoderCollection** iEncoderCollection);
+    [id(0x60020019), propget, helpstring("Returns a collection of EQ presets.")]
+    HRESULT EQPresets([out, retval] IITEQPresetCollection** iEQPresetCollection);
+    [id(0x6002001a), propget, helpstring("Returns a collection of visual plug-ins.")]
+    HRESULT Visuals([out, retval] IITVisualCollection** iVisualCollection);
+    [id(0x6002001b), propget, helpstring("Returns a collection of windows.")]
+    HRESULT Windows([out, retval] IITWindowCollection** iWindowCollection);
+    [id(0x6002001c), propget, helpstring("Returns the sound output volume (0 = minimum, 100 = maximum).")]
+    HRESULT SoundVolume([out, retval] long* volume);
+    [id(0x6002001c), propput, helpstring("Returns the sound output volume (0 = minimum, 100 = maximum).")]
+    HRESULT SoundVolume([in] long volume);
+    [id(0x6002001e), propget, helpstring("True if sound output is muted.")]
+    HRESULT Mute([out, retval] VARIANT_BOOL* isMuted);
+    [id(0x6002001e), propput, helpstring("True if sound output is muted.")]
+    HRESULT Mute([in] VARIANT_BOOL isMuted);
+    [id(0x60020020), propget, helpstring("Returns the current player state.")]
+    HRESULT PlayerState([out, retval] ITPlayerState* PlayerState);
+    [id(0x60020021), propget, helpstring("Returns the player's position within the currently playing track in seconds.")]
+    HRESULT PlayerPosition([out, retval] long* playerPos);
+    [id(0x60020021), propput, helpstring("Returns the player's position within the currently playing track in seconds.")]
+    HRESULT PlayerPosition([in] long playerPos);
+    [id(0x60020023), propget, helpstring("Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).")]
+    HRESULT CurrentEncoder([out, retval] IITEncoder** iEncoder);
+    [id(0x60020023), propput, helpstring("Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).")]
+    HRESULT CurrentEncoder([in] IITEncoder* iEncoder);
+    [id(0x60020025), propget, helpstring("True if visuals are currently being displayed.")]
+    HRESULT VisualsEnabled([out, retval] VARIANT_BOOL* isEnabled);
+    [id(0x60020025), propput, helpstring("True if visuals are currently being displayed.")]
+    HRESULT VisualsEnabled([in] VARIANT_BOOL isEnabled);
+    [id(0x60020027), propget, helpstring("True if the visuals are displayed using the entire screen.")]
+    HRESULT FullScreenVisuals([out, retval] VARIANT_BOOL* isFullScreen);
+    [id(0x60020027), propput, helpstring("True if the visuals are displayed using the entire screen.")]
+    HRESULT FullScreenVisuals([in] VARIANT_BOOL isFullScreen);
+    [id(0x60020029), propget, helpstring("Returns the size of the displayed visual.")]
+    HRESULT VisualSize([out, retval] ITVisualSize* VisualSize);
+    [id(0x60020029), propput, helpstring("Returns the size of the displayed visual.")]
+    HRESULT VisualSize([in] ITVisualSize VisualSize);
+    [id(0x6002002b), propget, helpstring("Returns the currently selected visual plug-in.")]
+    HRESULT CurrentVisual([out, retval] IITVisual** iVisual);
+    [id(0x6002002b), propput, helpstring("Returns the currently selected visual plug-in.")]
+    HRESULT CurrentVisual([in] IITVisual* iVisual);
+    [id(0x6002002d), propget, helpstring("True if the equalizer is enabled.")]
+    HRESULT EQEnabled([out, retval] VARIANT_BOOL* isEnabled);
+    [id(0x6002002d), propput, helpstring("True if the equalizer is enabled.")]
+    HRESULT EQEnabled([in] VARIANT_BOOL isEnabled);
+    [id(0x6002002f), propget, helpstring("Returns the currently selected EQ preset.")]
+    HRESULT CurrentEQPreset([out, retval] IITEQPreset** iEQPreset);
+    [id(0x6002002f), propput, helpstring("Returns the currently selected EQ preset.")]
+    HRESULT CurrentEQPreset([in] IITEQPreset* iEQPreset);
+    [id(0x60020031), propget, helpstring("The name of the current song in the playing stream (provided by streaming server).")]
+    HRESULT CurrentStreamTitle([out, retval] BSTR* streamTitle);
+    [id(0x60020032), propget, helpstring("The URL of the playing stream or streaming web site (provided by streaming server).")]
+    HRESULT CurrentStreamURL([out, retval] BSTR* streamURL);
+    [id(0x60020033), propget, helpstring("Returns the main iTunes browser window.")]
+    HRESULT BrowserWindow([out, retval] IITBrowserWindow** iBrowserWindow);
+    [id(0x60020034), propget, helpstring("Returns the EQ window.")]
+    HRESULT EQWindow([out, retval] IITWindow** iEQWindow);
+    [id(0x60020035), propget, helpstring("Returns the source that represents the main library.")]
+    HRESULT LibrarySource([out, retval] IITSource** iLibrarySource);
+    [id(0x60020036), propget, helpstring("Returns the main library playlist in the main library source.")]
+    HRESULT LibraryPlaylist([out, retval] IITLibraryPlaylist** iLibraryPlaylist);
+    [id(0x60020037), propget, helpstring("Returns the currently targeted track.")]
+    HRESULT CurrentTrack([out, retval] IITTrack** iTrack);
+    [id(0x60020038), propget, helpstring("Returns the playlist containing the currently targeted track.")]
+    HRESULT CurrentPlaylist([out, retval] IITPlaylist** iPlaylist);
+    [id(0x60020039), propget, helpstring("Returns a collection containing the currently selected track or tracks.")]
+    HRESULT SelectedTracks([out, retval] IITTrackCollection** iTrackCollection);
+    [id(0x6002003a), propget, helpstring("Returns the version of the iTunes application.")]
+    HRESULT Version([out, retval] BSTR* Version);
+    [id(0x6002003b)]
+    HRESULT SetOptions([in] long options);
+    [id(0x6002003c), helpstring("Start converting the specified file path.")]
+    HRESULT ConvertFile2(
+                    [in] BSTR filePath,
+                    [out, retval] IITConvertOperationStatus** iStatus);
+    [id(0x6002003d), helpstring("Start converting the specified array of file paths. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.")]
+    HRESULT ConvertFiles2(
+                    [in] VARIANT* filePaths,
+                    [out, retval] IITConvertOperationStatus** iStatus);
+    [id(0x6002003e), helpstring("Start converting the specified track.  iTrackToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrack.")]
+    HRESULT ConvertTrack2(
+                    [in] VARIANT* iTrackToConvert,
+                    [out, retval] IITConvertOperationStatus** iStatus);
+    [id(0x6002003f), helpstring("Start converting the specified tracks.  iTracksToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrackCollection.")]
+    HRESULT ConvertTracks2(
+                    [in] VARIANT* iTracksToConvert,
+                    [out, retval] IITConvertOperationStatus** iStatus);
+    [id(0x60020040), propget, helpstring("True if iTunes will process APPCOMMAND Windows messages.")]
+    HRESULT AppCommandMessageProcessingEnabled([out, retval] VARIANT_BOOL* isEnabled);
+    [id(0x60020040), propput, helpstring("True if iTunes will process APPCOMMAND Windows messages.")]
+    HRESULT AppCommandMessageProcessingEnabled([in] VARIANT_BOOL isEnabled);
+    [id(0x60020042), propget, helpstring("True if iTunes will force itself to be the foreground application when it displays a dialog.")]
+    HRESULT ForceToForegroundOnDialog([out, retval] VARIANT_BOOL* ForceToForegroundOnDialog);
+    [id(0x60020042), propput, helpstring("True if iTunes will force itself to be the foreground application when it displays a dialog.")]
+    HRESULT ForceToForegroundOnDialog([in] VARIANT_BOOL ForceToForegroundOnDialog);
+    [id(0x60020044), helpstring("Create a new EQ preset.")]
+    HRESULT CreateEQPreset(
+                    [in] BSTR eqPresetName,
+                    [out, retval] IITEQPreset** iEQPreset);
+    [id(0x60020045), helpstring("Creates a new playlist in an existing source.")]
+    HRESULT CreatePlaylistInSource(
+                    [in] BSTR playlistName,
+                    [in] VARIANT* iSource,
+                    [out, retval] IITPlaylist** iPlaylist);
+    [id(0x60020046), helpstring("Retrieves the current state of the player buttons.")]
+    HRESULT GetPlayerButtonsState(
+                    [out] VARIANT_BOOL* previousEnabled,
+                    [out] ITPlayButtonState* playPauseStopState,
+                    [out] VARIANT_BOOL* nextEnabled);
+    [id(0x60020047), helpstring("Simulate click on a player control button.")]
+    HRESULT PlayerButtonClicked(
+                    [in] ITPlayerButton playerButton,
+                    [in] long playerButtonModifierKeys);
+    [id(0x60020048), propget, helpstring("True if the Shuffle property is writable for the specified playlist.")]
+    HRESULT CanSetShuffle(
+                    [in] VARIANT* iPlaylist,
+                    [out, retval] VARIANT_BOOL* CanSetShuffle);
+    [id(0x60020049), propget, helpstring("True if the SongRepeat property is writable for the specified playlist.")]
+    HRESULT CanSetSongRepeat(
+                    [in] VARIANT* iPlaylist,
+                    [out, retval] VARIANT_BOOL* CanSetSongRepeat);
+    [id(0x6002004a), propget, helpstring("Returns an IITConvertOperationStatus object if there is currently a conversion in progress.")]
+    HRESULT ConvertOperationStatus([out, retval] IITConvertOperationStatus** iStatus);
+    [id(0x6002004b), helpstring("Subscribe to the specified podcast feed URL.")]
+    HRESULT SubscribeToPodcast([in] BSTR URL);
+    [id(0x6002004c), helpstring("Update all podcast feeds.")]
+    HRESULT UpdatePodcastFeeds();
+    [id(0x6002004d), helpstring("Creates a new folder in the main library.")]
+    HRESULT CreateFolder(
+                    [in] BSTR folderName,
+                    [out, retval] IITPlaylist** iFolder);
+    [id(0x6002004e), helpstring("Creates a new folder in an existing source.")]
+    HRESULT CreateFolderInSource(
+                    [in] BSTR folderName,
+                    [in] VARIANT* iSource,
+                    [out, retval] IITPlaylist** iFolder);
+    [id(0x6002004f), propget, helpstring("True if the sound volume control is enabled.")]
+    HRESULT SoundVolumeControlEnabled([out, retval] VARIANT_BOOL* isEnabled);
+    [id(0x60020050), propget, helpstring("The full path to the current iTunes library XML file.")]
+    HRESULT LibraryXMLPath([out, retval] BSTR* filePath);
+    [id(0x60020051), propget, helpstring("Returns the high 32 bits of the persistent ID of the specified IITObject.")]
+    HRESULT ITObjectPersistentIDHigh(
+                    [in] VARIANT* iObject,
+                    [out, retval] long* highID);
+    [id(0x60020052), propget, helpstring("Returns the low 32 bits of the persistent ID of the specified IITObject.")]
+    HRESULT ITObjectPersistentIDLow(
+                    [in] VARIANT* iObject,
+                    [out, retval] long* lowID);
+    [id(0x60020053), helpstring("Returns the high and low 32 bits of the persistent ID of the specified IITObject.")]
+    HRESULT GetITObjectPersistentIDs(
+                    [in] VARIANT* iObject,
+                    [out] long* highID,
+                    [out] long* lowID);
+    [id(0x60020054), propget, helpstring("Returns the player's position within the currently playing track in milliseconds.")]
+    HRESULT PlayerPositionMS([out, retval] long* playerPos);
+    [id(0x60020054), propput, helpstring("Returns the player's position within the currently playing track in milliseconds.")]
+    HRESULT PlayerPositionMS([in] long playerPos);
+};
+
+[
+  odl,
+  uuid(CF496DF3-0FED-4D7D-9BD8-529B6E8A082E),
+  helpstring("IITAudioCDPlaylist Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITAudioCDPlaylist : IITPlaylist {
+    [id(0x60040000), propget, helpstring("The artist of the CD.")]
+    HRESULT Artist([out, retval] BSTR* Artist);
+    [id(0x60040001), propget, helpstring("True if this CD is a compilation album.")]
+    HRESULT Compilation([out, retval] VARIANT_BOOL* isCompiliation);
+    [id(0x60040002), propget, helpstring("The composer of the CD.")]
+    HRESULT Composer([out, retval] BSTR* Composer);
+    [id(0x60040003), propget, helpstring("The total number of discs in this CD's album.")]
+    HRESULT DiscCount([out, retval] long* DiscCount);
+    [id(0x60040004), propget, helpstring("The index of the CD disc in the source album.")]
+    HRESULT DiscNumber([out, retval] long* DiscNumber);
+    [id(0x60040005), propget, helpstring("The genre of the CD.")]
+    HRESULT Genre([out, retval] BSTR* Genre);
+    [id(0x60040006), propget, helpstring("The year the album was recorded/released.")]
+    HRESULT Year([out, retval] long* Year);
+    [id(0x60040007), helpstring("Reveal the CD playlist in the main browser window.")]
+    HRESULT Reveal();
+};
+
+[
+  odl,
+  uuid(CF4D8ACE-1720-4FB9-B0AE-9877249E89B0),
+  helpstring("IITIPodSource Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITIPodSource : IITSource {
+    [id(0x60040000), helpstring("Update the contents of the iPod.")]
+    HRESULT UpdateIPod();
+    [id(0x60040001), helpstring("Eject the iPod.")]
+    HRESULT EjectIPod();
+    [id(0x60040002), propget, helpstring("The iPod software version.")]
+    HRESULT SoftwareVersion([out, retval] BSTR* SoftwareVersion);
+};
+
+[
+  odl,
+  uuid(00D7FE99-7868-4CC7-AD9E-ACFD70D09566),
+  helpstring("IITFileOrCDTrack Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITFileOrCDTrack : IITTrack {
+    [id(0x60040000), propget, helpstring("The full path to the file represented by this track.")]
+    HRESULT Location([out, retval] BSTR* Location);
+    [id(0x60040001), helpstring("Update this track's information with the information stored in its file.")]
+    HRESULT UpdateInfoFromFile();
+    [id(0x60040002), propget, helpstring("True if this is a podcast track.")]
+    HRESULT Podcast([out, retval] VARIANT_BOOL* isPodcast);
+    [id(0x60040003), helpstring("Update the podcast feed for this track.")]
+    HRESULT UpdatePodcastFeed();
+    [id(0x60040004), propget, helpstring("True if playback position is remembered.")]
+    HRESULT RememberBookmark([out, retval] VARIANT_BOOL* RememberBookmark);
+    [id(0x60040004), propput, helpstring("True if playback position is remembered.")]
+    HRESULT RememberBookmark([in] VARIANT_BOOL RememberBookmark);
+    [id(0x60040006), propget, helpstring("True if track is skipped when shuffling.")]
+    HRESULT ExcludeFromShuffle([out, retval] VARIANT_BOOL* ExcludeFromShuffle);
+    [id(0x60040006), propput, helpstring("True if track is skipped when shuffling.")]
+    HRESULT ExcludeFromShuffle([in] VARIANT_BOOL ExcludeFromShuffle);
+    [id(0x60040008), propget, helpstring("Lyrics for the track.")]
+    HRESULT Lyrics([out, retval] BSTR* Lyrics);
+    [id(0x60040008), propput, helpstring("Lyrics for the track.")]
+    HRESULT Lyrics([in] BSTR Lyrics);
+    [id(0x6004000a), propget, helpstring("Category for the track.")]
+    HRESULT Category([out, retval] BSTR* Category);
+    [id(0x6004000a), propput, helpstring("Category for the track.")]
+    HRESULT Category([in] BSTR Category);
+    [id(0x6004000c), propget, helpstring("Description for the track.")]
+    HRESULT Description([out, retval] BSTR* Description);
+    [id(0x6004000c), propput, helpstring("Description for the track.")]
+    HRESULT Description([in] BSTR Description);
+    [id(0x6004000e), propget, helpstring("Long description for the track.")]
+    HRESULT LongDescription([out, retval] BSTR* LongDescription);
+    [id(0x6004000e), propput, helpstring("Long description for the track.")]
+    HRESULT LongDescription([in] BSTR LongDescription);
+    [id(0x60040010), propget, helpstring("The bookmark time of the track (in seconds).")]
+    HRESULT BookmarkTime([out, retval] long* BookmarkTime);
+    [id(0x60040010), propput, helpstring("The bookmark time of the track (in seconds).")]
+    HRESULT BookmarkTime([in] long BookmarkTime);
+    [id(0x60040012), propget, helpstring("The video track kind.")]
+    HRESULT VideoKind([out, retval] ITVideoKind* VideoKind);
+    [id(0x60040012), propput, helpstring("The video track kind.")]
+    HRESULT VideoKind([in] ITVideoKind VideoKind);
+    [id(0x60040014), propget, helpstring("The number of times the track has been skipped.")]
+    HRESULT SkippedCount([out, retval] long* SkippedCount);
+    [id(0x60040014), propput, helpstring("The number of times the track has been skipped.")]
+    HRESULT SkippedCount([in] long SkippedCount);
+    [id(0x60040016), propget, helpstring("The date and time the track was last skipped.  A value of zero means no skipped date.")]
+    HRESULT SkippedDate([out, retval] DATE* SkippedDate);
+    [id(0x60040016), propput, helpstring("The date and time the track was last skipped.  A value of zero means no skipped date.")]
+    HRESULT SkippedDate([in] DATE SkippedDate);
+    [id(0x60040018), propget, helpstring("True if track is part of a gapless album.")]
+    HRESULT PartOfGaplessAlbum([out, retval] VARIANT_BOOL* PartOfGaplessAlbum);
+    [id(0x60040018), propput, helpstring("True if track is part of a gapless album.")]
+    HRESULT PartOfGaplessAlbum([in] VARIANT_BOOL PartOfGaplessAlbum);
+    [id(0x6004001a), propget, helpstring("The album artist of the track.")]
+    HRESULT AlbumArtist([out, retval] BSTR* AlbumArtist);
+    [id(0x6004001a), propput, helpstring("The album artist of the track.")]
+    HRESULT AlbumArtist([in] BSTR AlbumArtist);
+    [id(0x6004001c), propget, helpstring("The show name of the track.")]
+    HRESULT Show([out, retval] BSTR* showName);
+    [id(0x6004001c), propput, helpstring("The show name of the track.")]
+    HRESULT Show([in] BSTR showName);
+    [id(0x6004001e), propget, helpstring("The season number of the track.")]
+    HRESULT SeasonNumber([out, retval] long* SeasonNumber);
+    [id(0x6004001e), propput, helpstring("The season number of the track.")]
+    HRESULT SeasonNumber([in] long SeasonNumber);
+    [id(0x60040020), propget, helpstring("The episode ID of the track.")]
+    HRESULT EpisodeID([out, retval] BSTR* EpisodeID);
+    [id(0x60040020), propput, helpstring("The episode ID of the track.")]
+    HRESULT EpisodeID([in] BSTR EpisodeID);
+    [id(0x60040022), propget, helpstring("The episode number of the track.")]
+    HRESULT EpisodeNumber([out, retval] long* EpisodeNumber);
+    [id(0x60040022), propput, helpstring("The episode number of the track.")]
+    HRESULT EpisodeNumber([in] long EpisodeNumber);
+    [id(0x60040024), propget, helpstring("The high 32-bits of the size of the track (in bytes).")]
+    HRESULT Size64High([out, retval] long* sizeHigh);
+    [id(0x60040025), propget, helpstring("The low 32-bits of the size of the track (in bytes).")]
+    HRESULT Size64Low([out, retval] long* sizeLow);
+    [id(0x60040026), propget, helpstring("True if track has not been played.")]
+    HRESULT Unplayed([out, retval] VARIANT_BOOL* isUnplayed);
+    [id(0x60040026), propput, helpstring("True if track has not been played.")]
+    HRESULT Unplayed([in] VARIANT_BOOL isUnplayed);
+    [id(0x60040028), propget, helpstring("The album used for sorting.")]
+    HRESULT SortAlbum([out, retval] BSTR* Album);
+    [id(0x60040028), propput, helpstring("The album used for sorting.")]
+    HRESULT SortAlbum([in] BSTR Album);
+    [id(0x6004002a), propget, helpstring("The album artist used for sorting.")]
+    HRESULT SortAlbumArtist([out, retval] BSTR* AlbumArtist);
+    [id(0x6004002a), propput, helpstring("The album artist used for sorting.")]
+    HRESULT SortAlbumArtist([in] BSTR AlbumArtist);
+    [id(0x6004002c), propget, helpstring("The artist used for sorting.")]
+    HRESULT SortArtist([out, retval] BSTR* Artist);
+    [id(0x6004002c), propput, helpstring("The artist used for sorting.")]
+    HRESULT SortArtist([in] BSTR Artist);
+    [id(0x6004002e), propget, helpstring("The composer used for sorting.")]
+    HRESULT SortComposer([out, retval] BSTR* Composer);
+    [id(0x6004002e), propput, helpstring("The composer used for sorting.")]
+    HRESULT SortComposer([in] BSTR Composer);
+    [id(0x60040030), propget, helpstring("The track name used for sorting.")]
+    HRESULT SortName([out, retval] BSTR* Name);
+    [id(0x60040030), propput, helpstring("The track name used for sorting.")]
+    HRESULT SortName([in] BSTR Name);
+    [id(0x60040032), propget, helpstring("The show name used for sorting.")]
+    HRESULT SortShow([out, retval] BSTR* showName);
+    [id(0x60040032), propput, helpstring("The show name used for sorting.")]
+    HRESULT SortShow([in] BSTR showName);
+    [id(0x60040034), helpstring("Reveal the track in the main browser window.")]
+    HRESULT Reveal();
+    [id(0x60040035), propget, helpstring("The user or computed rating of the album that this track belongs to (0 to 100).")]
+    HRESULT AlbumRating([out, retval] long* Rating);
+    [id(0x60040035), propput, helpstring("The user or computed rating of the album that this track belongs to (0 to 100).")]
+    HRESULT AlbumRating([in] long Rating);
+    [id(0x60040037), propget, helpstring("The album rating kind.")]
+    HRESULT AlbumRatingKind([out, retval] ITRatingKind* ratingKind);
+    [id(0x60040038), propget, helpstring("The track rating kind.")]
+    HRESULT ratingKind([out, retval] ITRatingKind* ratingKind);
+    [id(0x60040039), propget, helpstring("Returns a collection of playlists that contain the song that this track represents.")]
+    HRESULT Playlists([out, retval] IITPlaylistCollection** iPlaylistCollection);
+    [id(0x60040000), propput, helpstring("The full path to the file represented by this track.")]
+    HRESULT Location([in] BSTR Location);
+    [id(0x6004003b), propget, helpstring("The release date of the track.  A value of zero means no release date.")]
+    HRESULT ReleaseDate([out, retval] DATE* ReleaseDate);
+};
+
+[
+  odl,
+  uuid(349CBB45-2E5A-4822-8E4A-A75555A186F7),
+  helpstring("IITPlaylistWindow Interface"),
+  hidden,
+  dual,
+  oleautomation
+]
+interface IITPlaylistWindow : IITWindow {
+    [id(0x60030000), propget, helpstring("Returns a collection containing the currently selected track or tracks.")]
+    HRESULT SelectedTracks([out, retval] IITTrackCollection** iTrackCollection);
+    [id(0x60030001), propget, helpstring("The playlist displayed in the window.")]
+    HRESULT Playlist([out, retval] IITPlaylist** iPlaylist);
+};

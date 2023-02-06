@@ -1,0 +1,22 @@
+[package]
+name = "itunes-com"
+version = "0.1.0"
+edition = "2021"
+authors = ["daladim"]
+description = "Bindings over iTunes COM API"
+repository = "https://github.com/daladim/apple-music-rs"
+documentation = "https://docs.rs/apple-music"
+license = "MIT"
+readme = "README.md"
+keywords = ["iTunes", "API", "COM", "windows"]
+categories = ["api-bindings", "database", "multimedia"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.44.0", features = [
+    "implement",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_Foundation"
+] }
