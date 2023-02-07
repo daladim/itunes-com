@@ -5,6 +5,7 @@
 use crate::HRESULT;
 use crate::BSTR;
 use crate::VARIANT_BOOL;
+use crate::IEnumVARIANT;
 
 use windows::core::IUnknown;
 use windows::Win32::System::Com::IDispatch;
@@ -70,7 +71,10 @@ pub unsafe trait IITPlaylistCollection : IDispatch {
     /// Returns an IITPlaylist object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iPlaylist: *mut Option<IITPlaylist>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
     /// Returns an IITPlaylist object with the specified persistent ID.
     pub unsafe fn ItemByPersistentID(&self, highID: LONG, lowID: LONG, iPlaylist: *mut Option<IITPlaylist>) -> HRESULT;
 }
@@ -126,7 +130,10 @@ pub unsafe trait IITTrackCollection : IDispatch {
     /// Returns an IITTrack object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iTrack: *mut Option<IITTrack>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
     /// Returns an IITTrack object with the specified persistent ID.
     pub unsafe fn ItemByPersistentID(&self, highID: LONG, lowID: LONG, iTrack: *mut Option<IITTrack>) -> HRESULT;
 }
@@ -283,7 +290,10 @@ pub unsafe trait IITArtworkCollection : IDispatch {
     /// Returns an IITArtwork object corresponding to the given index (1-based).
     pub unsafe fn Item(&self, Index: LONG, iArtwork: *mut Option<IITArtwork>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
 }
 
 /// IITSourceCollection Interface
@@ -298,7 +308,10 @@ pub unsafe trait IITSourceCollection : IDispatch {
     /// Returns an IITSource object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iSource: *mut Option<IITSource>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
     /// Returns an IITSource object with the specified persistent ID.
     pub unsafe fn ItemByPersistentID(&self, highID: LONG, lowID: LONG, iSource: *mut Option<IITSource>) -> HRESULT;
 }
@@ -326,7 +339,10 @@ pub unsafe trait IITEncoderCollection : IDispatch {
     /// Returns an IITEncoder object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iEncoder: *mut Option<IITEncoder>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
 }
 
 /// IITEQPreset Interface
@@ -400,7 +416,10 @@ pub unsafe trait IITEQPresetCollection : IDispatch {
     /// Returns an IITEQPreset object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iEQPreset: *mut Option<IITEQPreset>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
 }
 
 /// IITOperationStatus Interface
@@ -541,7 +560,10 @@ pub unsafe trait IITVisualCollection : IDispatch {
     /// Returns an IITVisual object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iVisual: *mut Option<IITVisual>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
 }
 
 /// IITWindow Interface
@@ -630,7 +652,10 @@ pub unsafe trait IITWindowCollection : IDispatch {
     /// Returns an IITWindow object with the specified name.
     pub unsafe fn ItemByName(&self, Name: BSTR, iWindow: *mut Option<IITWindow>) -> HRESULT;
     /// Returns an IEnumVARIANT object which can enumerate the collection.
-    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IUnknown>) -> HRESULT;
+    ///
+    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+    /// Feel free to open an issue or a pull request to fix this.
+    pub unsafe fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> HRESULT;
 }
 
 /// IiTunes Interface
