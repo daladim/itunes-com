@@ -1,46 +1,30 @@
-//! Bindings over iTunes COM API
+//! Bindings over iTunes COM API for Windows
 //!
-//! This crate makes it possible to control the local instance of iTunes on a Windows PC.
+//! # What is this for?
 //!
-//! ## Abilities
+//! iTunes COM API makes it possible to control the local instance of iTunes.
 //!
 //! This crate is able to **read** info (about playlists, songs, etc.) from the local iTunes instance.<br/>
 //! It is also able to **edit** data (add songs to playlists, change track ratings, etc.) on the local iTunes instance.<br/>
+//! It is also able to interact with iTunes state and settings (get info about the currently opened windows, get or set EQs, etc.)<br/>
 //! It is **not** meant to read or edit "cloud" playlists, or to do anything network-related.
 //!
-//! ## How to use them
-//! TODO: code example to start by creating an istance of ...
+//! # OS and software compatibility
 //!
+//! This crate is Windows-only.
+//! Currently, only iTunes is supported, as Apple Music on Windows does not (yet?) expose a COM interface.<br/>
+//! On macOS, it is possible to control iTunes and Apple Music using Apple Script.
 //!
-//! ## Where to find them?
-//! Some resources online (e.g. [here](https://www.joshkunz.com/iTunesControl/main.html) or [there](https://documentation.help/iTunesCOM/main.html)
-//! expose the documentation generated from IDL files.<br/>
-//! They do not tell in which order they are defined, which is meaningful.
+//! # How can this crate be used?
 //!
-//! Opening iTunes.exe in oleview.exe (File > View TypeLib, then open iTunes.exe) generates (pseudo)IDL files that are suitable to correctly define bindings.
-//! That's then a matter of finding-and-replacing IDL patterns with Rust patterns and hope the bindings are eventually correct.
+//! ## Raw bindings
 //!
-//! ## See also
-//! TOD: what about Apple Music ? macOS ?
+//! This crate provides raw bindings over the COM API. See the [`com`] module.
+//!
+//! ## Safe bindings
+//!
+//! In case it is built with the `wrappers` Cargo feature, it also provides safe, Rust-typed wrappers over this API.
+//! See the [`wrappers`] module.
 
-mod com_interfaces;
-mod com_enums;
 
-pub use com_interfaces::*;
-pub use com_enums::*;
-
-/// The GUID used to create an instance of [`crate::IiTunes`].
-pub const ITUNES_APP_COM_GUID: windows::core::GUID = windows::core::GUID::from_u128(0xDC0C2640_1415_4644_875C_6F4D769839BA);
-
-// These types are part of the public API and must be re-exported so that users can use them in their right version.
-/// Re-exported type from windows-rs.
-pub use windows::{
-    core::{BSTR, HRESULT},
-    Win32::Foundation::VARIANT_BOOL,
-    Win32::System::Ole::IEnumVARIANT,
-};
-
-/// Convenience constant
-pub const TRUE: crate::VARIANT_BOOL = crate::VARIANT_BOOL(-1);
-/// Convenience constant
-pub const FALSE: crate::VARIANT_BOOL = crate::VARIANT_BOOL(0);
+pub mod com;

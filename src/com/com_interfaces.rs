@@ -2,16 +2,14 @@
 
 // These types are in the public API.
 // We'd rather use the re-exported versions, so that they are available to our users.
-use crate::HRESULT;
-use crate::BSTR;
-use crate::VARIANT_BOOL;
-use crate::IEnumVARIANT;
+use super::HRESULT;
+use super::BSTR;
+use super::VARIANT_BOOL;
+use super::IEnumVARIANT;
 
-use windows::core::IUnknown;
 use windows::Win32::System::Com::IDispatch;
 use windows::Win32::System::Com::IDispatch_Impl;
 use windows::Win32::System::Com::IDispatch_Vtbl;
-use windows::core::GUID;
 
 use windows::Win32::System::Com::VARIANT;
 
