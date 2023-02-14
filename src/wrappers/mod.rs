@@ -12,6 +12,7 @@ use crate::com::*;
 
 use windows::core::BSTR;
 use windows::core::HRESULT;
+use windows::core::Interface;
 use windows::Win32::Media::Multimedia::NS_E_PROPERTY_NOT_FOUND;
 
 use windows::Win32::System::Com::{CoInitializeEx, CoCreateInstance, CLSCTX_ALL, COINIT_MULTITHREADED};
@@ -23,6 +24,20 @@ type LONG = i32;
 use widestring::ucstring::U16CString;
 use num_traits::FromPrimitive;
 
+mod private {
+    //! The only reason for this private module is to have a "private" trait in publicly exported types
+    //!
+    //! See <https://github.com/rust-lang/rust/issues/34537>
+    use super::*;
+
+    pub trait ComObjectWrapper {
+        type WrappedType: Interface;
+
+        fn from_com_object(com_object: Self::WrappedType) -> Self;
+        fn com_object(&self) -> &Self::WrappedType;
+    }
+}
+use private::ComObjectWrapper;
 
 macro_rules! com_wrapper_struct {
     ($struct_name:ident) => {
@@ -31,15 +46,17 @@ macro_rules! com_wrapper_struct {
                 com_object: crate::com::[<IIT $struct_name>],
             }
 
-            impl $struct_name {
+            impl private::ComObjectWrapper for $struct_name {
+                type WrappedType = [<IIT $struct_name>];
+
                 fn from_com_object(com_object: crate::com::[<IIT $struct_name>]) -> Self {
                     Self {
                         com_object
                     }
                 }
 
-                fn com_object(self) -> crate::com::[<IIT $struct_name>] {
-                    self.com_object
+                fn com_object(&self) -> &crate::com::[<IIT $struct_name>] {
+                    &self.com_object
                 }
             }
         }
@@ -276,7 +293,7 @@ macro_rules! set_object {
         ::paste::paste! {
             pub fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
                 let object_to_set = data.com_object();
-                let result = unsafe{ self.com_object.[<set _$fn_name>](&object_to_set as *const _) };
+                let result = unsafe{ self.com_object.[<set _$fn_name>](object_to_set as *const _) };
                 result.ok()
             }
         }
@@ -356,44 +373,85 @@ macro_rules! iterator {
     }
 }
 
+macro_rules! iitobject_get_bstr {
+    ($func_name:ident) => {
+        fn $func_name(&self) -> windows::core::Result<String> {
+            let mut bstr = BSTR::default();
+            let iitobject = self.com_object().cast::<IITObject>().unwrap();
+            let result = unsafe{ iitobject.$func_name(&mut bstr) };
+            result.ok()?;
+
+            let v: Vec<u16> = bstr.as_wide().to_vec();
+            Ok(U16CString::from_vec_truncate(v).to_string_lossy())
+        }
+    }
+}
+
+macro_rules! iitobject_get_long {
+    ($func_name:ident) => {
+        fn $func_name(&self) -> windows::core::Result<LONG> {
+            let mut value: LONG = 0;
+            let iitobject = self.com_object().cast::<IITObject>().unwrap();
+            let result = unsafe{ iitobject.$func_name(&mut value as *mut LONG) };
+            result.ok()?;
+
+            Ok(value)
+        }
+    };
+}
+
+macro_rules! iitobject_set_bstr {
+    ($key:ident) => {
+        ::paste::paste! {
+            fn [<set _$key>](&self, $key: String) -> windows::core::Result<()> {
+                let wide = U16CString::from_str_truncate($key);
+                let bstr = BSTR::from_wide(wide.as_slice())?;
+                let iitobject = self.com_object().cast::<IITObject>().unwrap();
+                let result = unsafe{ iitobject.[<set _$key>](bstr) };
+                result.ok()?;
+                Ok(())
+            }
+        }
+    };
+}
 
 
-/// IITObject Interface
-///
-/// See the generated [`IITObject_Impl`] trait for more documentation about each function.
-com_wrapper_struct!(Object);
 
-impl Object {
+/// Many COM objects inherit from this class, which provides some extra methods
+pub trait IITObjectWrapper: private::ComObjectWrapper {
     /// Returns the four IDs that uniquely identify this object.
-    pub unsafe fn GetITObjectIDs(&self, sourceID: *mut LONG, playlistID: *mut LONG, trackID: *mut LONG, databaseID: *mut LONG) -> windows::core::Result<()> {
+    unsafe fn GetITObjectIDs(&self, sourceID: *mut LONG, playlistID: *mut LONG, trackID: *mut LONG, databaseID: *mut LONG) -> windows::core::Result<()> {
         todo!()
     }
-    /// The name of the object.
-    get_bstr!(Name);
 
     /// The name of the object.
-    set_bstr!(Name);
+    iitobject_get_bstr!(Name);
+
+    /// The name of the object.
+    iitobject_set_bstr!(Name);
 
     /// The index of the object in internal application order (1-based).
-    get_long!(Index);
+    iitobject_get_long!(Index);
 
     /// The source ID of the object.
-    get_long!(sourceID);
+    iitobject_get_long!(sourceID);
 
     /// The playlist ID of the object.
-    get_long!(playlistID);
+    iitobject_get_long!(playlistID);
 
     /// The track ID of the object.
-    get_long!(trackID);
+    iitobject_get_long!(trackID);
 
     /// The track database ID of the object.
-    get_long!(TrackDatabaseID);
+    iitobject_get_long!(TrackDatabaseID);
 }
 
 /// IITSource Interface
 ///
 /// See the generated [`IITSource_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(Source);
+
+impl IITObjectWrapper for Source {}
 
 impl Source {
     /// The source kind.
@@ -428,6 +486,8 @@ iterator!(PlaylistCollection, Playlist);
 ///
 /// See the generated [`IITPlaylist_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(Playlist);
+
+impl IITObjectWrapper for Playlist {}
 
 impl Playlist {
     /// Delete this playlist.
@@ -501,6 +561,8 @@ iterator!(TrackCollection, Track);
 ///
 /// See the generated [`IITTrack_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(Track);
+
+impl IITObjectWrapper for Track {}
 
 impl Track {
     /// Delete this track.
@@ -1235,10 +1297,11 @@ impl iTunes {
     pub fn CheckVersion(&self, majorVersion: LONG, minorVersion: LONG, isCompatible: *mut VARIANT_BOOL) -> windows::core::Result<()> {
         todo!()
     }
-    /// Returns an IITObject corresponding to the specified IDs.
-    pub fn GetITObjectByID(&self, sourceID: LONG, playlistID: LONG, trackID: LONG, databaseID: LONG, iObject: *mut Option<IITObject>) -> windows::core::Result<()> {
-        todo!()
-    }
+    // TODO: implement this, but IITObject is a trait
+    // /// Returns an IITObject corresponding to the specified IDs.
+    // pub fn GetITObjectByID(&self, sourceID: LONG, playlistID: LONG, trackID: LONG, databaseID: LONG, iObject: *mut Option<IITObject>) -> windows::core::Result<()> {
+    //     todo!()
+    // }
     /// Creates a new playlist in the main library.
     pub fn CreatePlaylist(&self, playlistName: BSTR, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
         todo!()
