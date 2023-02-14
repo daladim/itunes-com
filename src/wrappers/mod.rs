@@ -1,4 +1,6 @@
 //! Safe wrappers over the COM API.
+//!
+//! You usually want to start by creating an instance of the `iTunes` interface by [`iTunes::new`], then use its various methods.
 
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
@@ -10,6 +12,7 @@ use windows::core::BSTR;
 use windows::core::HRESULT;
 use windows::Win32::Media::Multimedia::NS_E_PROPERTY_NOT_FOUND;
 
+use windows::Win32::System::Com::{CoInitializeEx, CoCreateInstance, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::System::Com::VARIANT;
 
 type DATE = f64; // This type must be a joke. https://learn.microsoft.com/en-us/cpp/atl-mfc-shared/date-type?view=msvc-170
@@ -1234,7 +1237,16 @@ pub struct iTunes {
 }
 
 impl iTunes {
-    pub fn new() {}
+    /// Create a new COM object to communicate with iTunes
+    pub fn new() -> windows::core::Result<Self> {
+        unsafe {
+            CoInitializeEx(None, COINIT_MULTITHREADED)?;
+        }
+
+        Ok(Self {
+            com_object: unsafe { CoCreateInstance(&crate::com::ITUNES_APP_COM_GUID, None, CLSCTX_ALL)? },
+        })
+    }
 
     /// Reposition to the beginning of the current track or go to the previous track if already at start of current track.
     no_args!(BackTrack);
