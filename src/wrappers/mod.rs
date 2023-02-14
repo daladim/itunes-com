@@ -245,6 +245,20 @@ macro_rules! set_enum {
     }
 }
 
+macro_rules! create_wrapped_object {
+    ($obj_type:ident, $out_obj:ident) => {
+        match $out_obj {
+            None => Err(windows::core::Error::new(
+                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
+                windows::h!("Item not found").clone(),
+            )),
+            Some(com_object) => Ok(
+                $obj_type::from_com_object(com_object)
+            )
+        }
+    };
+}
+
 macro_rules! get_object {
     ($fn_name:ident, $obj_type:ident) => {
         pub fn $fn_name(&self) -> windows::core::Result<$obj_type> {
@@ -252,15 +266,7 @@ macro_rules! get_object {
             let result = unsafe{ self.com_object.$fn_name(&mut out_obj as *mut _) };
             result.ok()?;
 
-            match out_obj {
-                None => Err(windows::core::Error::new(
-                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
-                windows::h!("Item not found").clone(),
-                )),
-                Some(com_object) => Ok(
-                    $obj_type::from_com_object(com_object)
-                )
-            }
+            create_wrapped_object!($obj_type, out_obj)
         }
     }
 }
@@ -285,16 +291,14 @@ macro_rules! item_by_name {
             let mut out_obj = None;
             let result = unsafe{ self.com_object.ItemByName(bstr, &mut out_obj as *mut _) };
             result.ok()?;
-            out_obj.ok_or_else(|| windows::core::Error::new(
-                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
-                windows::h!("Item not found").clone(),
-            ))
+
+            create_wrapped_object!($obj_type, out_obj)
         }
     }
 }
 
 macro_rules! item_by_persistent_id {
-    ($obj_type:ty) => {
+    ($obj_type:ident) => {
         pub fn ItemByPersistentID(&self, id: u64) -> windows::core::Result<$obj_type> {
             let b = id.to_le_bytes();
             let id_high = i32::from_le_bytes(b[..4].try_into().unwrap());
@@ -303,10 +307,8 @@ macro_rules! item_by_persistent_id {
             let mut out_obj = None;
             let result = unsafe{ self.com_object.ItemByPersistentID(id_high, id_low, &mut out_obj as *mut _) };
             result.ok()?;
-            out_obj.ok_or_else(|| windows::core::Error::new(
-                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
-                windows::h!("Item not found").clone(),
-            ))
+
+            create_wrapped_object!($obj_type, out_obj)
         }
     }
 }
@@ -339,10 +341,8 @@ macro_rules! iterator {
                 let mut out_obj = None;
                 let result = unsafe{ self.com_object.Item(index, &mut out_obj as *mut _) };
                 result.ok()?;
-                out_obj.ok_or_else(|| windows::core::Error::new(
-                    NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
-                    windows::h!("Item not found").clone(),
-                ))
+
+                create_wrapped_object!($item_type, out_obj)
             }
 
             // /// Returns an IEnumVARIANT object which can enumerate the collection.
@@ -416,13 +416,13 @@ com_wrapper_struct!(PlaylistCollection);
 
 impl PlaylistCollection {
     /// Returns an IITPlaylist object with the specified name.
-    item_by_name!(IITPlaylist);
+    item_by_name!(Playlist);
 
     /// Returns an IITPlaylist object with the specified persistent ID.
-    item_by_persistent_id!(IITPlaylist);
+    item_by_persistent_id!(Playlist);
 }
 
-iterator!(PlaylistCollection, IITPlaylist);
+iterator!(PlaylistCollection, Playlist);
 
 /// IITPlaylist Interface
 ///
@@ -489,13 +489,13 @@ impl TrackCollection {
         todo!()
     }
     /// Returns an IITTrack object with the specified name.
-    item_by_name!(IITTrack);
+    item_by_name!(Track);
 
     /// Returns an IITTrack object with the specified persistent ID.
-    item_by_persistent_id!(IITTrack);
+    item_by_persistent_id!(Track);
 }
 
-iterator!(TrackCollection, IITTrack);
+iterator!(TrackCollection, Track);
 
 /// IITTrack Interface
 ///
@@ -711,7 +711,7 @@ com_wrapper_struct!(ArtworkCollection);
 
 impl ArtworkCollection {}
 
-iterator!(ArtworkCollection, IITArtwork);
+iterator!(ArtworkCollection, Artwork);
 
 /// IITSourceCollection Interface
 ///
@@ -720,13 +720,13 @@ com_wrapper_struct!(SourceCollection);
 
 impl SourceCollection {
     /// Returns an IITSource object with the specified name.
-    item_by_name!(IITSource);
+    item_by_name!(Source);
 
     /// Returns an IITSource object with the specified persistent ID.
-    item_by_persistent_id!(IITSource);
+    item_by_persistent_id!(Source);
 }
 
-iterator!(SourceCollection, IITSource);
+iterator!(SourceCollection, Source);
 
 /// IITEncoder Interface
 ///
@@ -748,10 +748,10 @@ com_wrapper_struct!(EncoderCollection);
 
 impl EncoderCollection {
     /// Returns an IITEncoder object with the specified name.
-    item_by_name!(IITEncoder);
+    item_by_name!(Encoder);
 }
 
-iterator!(EncoderCollection, IITEncoder);
+iterator!(EncoderCollection, Encoder);
 
 /// IITEQPreset Interface
 ///
@@ -847,10 +847,10 @@ com_wrapper_struct!(EQPresetCollection);
 
 impl EQPresetCollection {
     /// Returns an IITEQPreset object with the specified name.
-    item_by_name!(IITEQPreset);
+    item_by_name!(EQPreset);
 }
 
-iterator!(EQPresetCollection, IITEQPreset);
+iterator!(EQPresetCollection, EQPreset);
 
 /// IITOperationStatus Interface
 ///
@@ -1040,10 +1040,10 @@ com_wrapper_struct!(VisualCollection);
 
 impl VisualCollection {
     /// Returns an IITVisual object with the specified name.
-    item_by_name!(IITVisual);
+    item_by_name!(Visual);
 }
 
-iterator!(VisualCollection, IITVisual);
+iterator!(VisualCollection, Visual);
 
 /// IITWindow Interface
 ///
@@ -1158,10 +1158,10 @@ com_wrapper_struct!(WindowCollection);
 
 impl WindowCollection {
     /// Returns an IITWindow object with the specified name.
-    item_by_name!(IITWindow);
+    item_by_name!(Window);
 }
 
-iterator!(WindowCollection, IITWindow);
+iterator!(WindowCollection, Window);
 
 /// IiTunes Interface
 ///
