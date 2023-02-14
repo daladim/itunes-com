@@ -5,6 +5,8 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
+pub mod iter;
+
 // We'd rather use the re-exported versions, so that they are available to our users.
 use crate::com::*;
 
@@ -27,6 +29,18 @@ macro_rules! com_wrapper_struct {
         ::paste::paste! {
             pub struct $struct_name {
                 com_object: crate::com::[<IIT $struct_name>],
+            }
+
+            impl $struct_name {
+                fn from_com_object(com_object: crate::com::[<IIT $struct_name>]) -> Self {
+                    Self {
+                        com_object
+                    }
+                }
+
+                fn com_object(self) -> crate::com::[<IIT $struct_name>] {
+                    self.com_object
+                }
             }
         }
     }
@@ -80,15 +94,24 @@ macro_rules! set_bstr {
     }
 }
 
-macro_rules! get_long {
-    ($func_name:ident) => {
-        pub fn $func_name(&self) -> windows::core::Result<i32> {
-            let mut value: i32 = 0;
-            let result = unsafe{ self.com_object.$func_name(&mut value as *mut i32) };
+macro_rules! get_long_with_vis {
+    ($vis:vis $func_name:ident) => {
+        $vis fn $func_name(&self) -> windows::core::Result<LONG> {
+            let mut value: LONG = 0;
+            let result = unsafe{ self.com_object.$func_name(&mut value as *mut LONG) };
             result.ok()?;
 
             Ok(value)
         }
+    };
+}
+
+macro_rules! get_long {
+    ($func_name:ident) => {
+        get_long_with_vis!(pub $func_name);
+    };
+    (not_pub $func_name:ident) => {
+        get_long_with_vis!($func_name);
     }
 }
 
@@ -228,10 +251,16 @@ macro_rules! get_object {
             let mut out_obj = None;
             let result = unsafe{ self.com_object.$fn_name(&mut out_obj as *mut _) };
             result.ok()?;
-            out_obj.ok_or_else(|| windows::core::Error::new(
+
+            match out_obj {
+                None => Err(windows::core::Error::new(
                 NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
                 windows::h!("Item not found").clone(),
-            ))
+                )),
+                Some(com_object) => Ok(
+                    $obj_type::from_com_object(com_object)
+                )
+            }
         }
     }
 }
@@ -240,7 +269,8 @@ macro_rules! set_object {
     ($fn_name:ident, $obj_type:ident) => {
         ::paste::paste! {
             pub fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set _$fn_name>](&data as *const _) };
+                let object_to_set = data.com_object();
+                let result = unsafe{ self.com_object.[<set _$fn_name>](&object_to_set as *const _) };
                 result.ok()
             }
         }
@@ -250,8 +280,7 @@ macro_rules! set_object {
 macro_rules! item_by_name {
     ($obj_type:ident) => {
         pub fn ItemByName(&self, name: String) -> windows::core::Result<$obj_type> {
-            let wide = U16CString::from_str_truncate(name);
-            let bstr = BSTR::from_wide(wide.as_slice())?;
+            str_to_bstr!(name, bstr);
 
             let mut out_obj = None;
             let result = unsafe{ self.com_object.ItemByName(bstr, &mut out_obj as *mut _) };
@@ -282,49 +311,47 @@ macro_rules! item_by_persistent_id {
     }
 }
 
-macro_rules! get_enum {
-    ($fn_name:ident, $enum_type:ty) => {
-        pub fn $fn_name(&self) -> windows::core::Result<$enum_type> {
-            let mut value: $enum_type = FromPrimitive::from_i32(0).unwrap();
-            let result = unsafe{ self.com_object.$fn_name(&mut value as *mut _) };
-            result.ok()?;
-            Ok(value)
-        }
-    }
+
+pub trait Iterable {
+    type Item;
+
+    // Provided by the COM API
+    fn Count(&self) -> windows::core::Result<LONG>;
+    // Provided by the COM API
+    fn item(&self, index: LONG) -> windows::core::Result<<Self as Iterable>::Item>;
 }
 
-macro_rules! set_enum {
-    ($fn_name:ident, $enum_type:ty) => {
-        ::paste::paste! {
-            pub fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set _$fn_name>](value) };
-                result.ok()
+macro_rules! iterator {
+    ($obj_type:ident, $item_type:ident) => {
+        impl $obj_type {
+            pub fn iter(&self) -> windows::core::Result<iter::Iterator<$obj_type, $item_type>> {
+                iter::Iterator::new(&self)
             }
         }
-    }
-}
 
-macro_rules! get_object {
-    ($fn_name:ident, $obj_type:ident) => {
-        pub fn $fn_name(&self) -> windows::core::Result<$obj_type> {
-            let mut out_obj = None;
-            let result = unsafe{ self.com_object.$fn_name(&mut out_obj as *mut _) };
-            result.ok()?;
-            out_obj.ok_or_else(|| windows::core::Error::new(
-                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
-                windows::h!("Item not found").clone(),
-            ))
-        }
-    }
-}
+        impl Iterable for $obj_type {
+            type Item = $item_type;
 
-macro_rules! set_object {
-    ($fn_name:ident, $obj_type:ident) => {
-        ::paste::paste! {
-            pub fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set _$fn_name>](&data as *const _) };
-                result.ok()
+            get_long!(not_pub Count);
+
+            /// Returns an $item_type object corresponding to the given index (1-based).
+            fn item(&self, index: LONG) -> windows::core::Result<<Self as Iterable>::Item> {
+                let mut out_obj = None;
+                let result = unsafe{ self.com_object.Item(index, &mut out_obj as *mut _) };
+                result.ok()?;
+                out_obj.ok_or_else(|| windows::core::Error::new(
+                    NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
+                    windows::h!("Item not found").clone(),
+                ))
             }
+
+            // /// Returns an IEnumVARIANT object which can enumerate the collection.
+            // ///
+            // /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
+            // /// Feel free to open an issue or a pull request to fix this.
+            // pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
+            //     todo!()
+            // }
         }
     }
 }
@@ -379,7 +406,7 @@ impl Source {
     get_double!(FreeSpace);
 
     /// Returns a collection of playlists.
-    get_object!(Playlists, IITPlaylistCollection);
+    get_object!(Playlists, PlaylistCollection);
 }
 
 /// IITPlaylistCollection Interface
@@ -388,25 +415,14 @@ impl Source {
 com_wrapper_struct!(PlaylistCollection);
 
 impl PlaylistCollection {
-    /// Returns the number of playlists in the collection.
-    get_long!(Count);
-
-    /// Returns an IITPlaylist object corresponding to the given index (1-based).
-    item!(IITPlaylist);
-
     /// Returns an IITPlaylist object with the specified name.
     item_by_name!(IITPlaylist);
 
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
     /// Returns an IITPlaylist object with the specified persistent ID.
     item_by_persistent_id!(IITPlaylist);
 }
+
+iterator!(PlaylistCollection, IITPlaylist);
 
 /// IITPlaylist Interface
 ///
@@ -432,7 +448,7 @@ impl Playlist {
     get_enum!(Kind, ITPlaylistKind);
 
     /// The source that contains this playlist.
-    get_object!(Source, IITSource);
+    get_object!(Source, Source);
 
     /// The total length of all songs in the playlist (in seconds).
     get_long!(Duration);
@@ -459,7 +475,7 @@ impl Playlist {
     get_bool!(Visible);
 
     /// Returns a collection of tracks in this playlist.
-    get_object!(Tracks, IITTrackCollection);
+    get_object!(Tracks, TrackCollection);
 }
 
 /// IITTrackCollection Interface
@@ -468,12 +484,6 @@ impl Playlist {
 com_wrapper_struct!(TrackCollection);
 
 impl TrackCollection {
-    /// Returns the number of tracks in the collection.
-    get_long!(Count);
-
-    /// Returns an IITTrack object corresponding to the given fixed index, where the index is independent of the play order (1-based).
-    item!(IITTrack);
-
     /// Returns an IITTrack object corresponding to the given index, where the index is defined by the play order of the playlist containing the track collection (1-based).
     pub fn ItemByPlayOrder(&self, Index: LONG, iTrack: *mut Option<IITTrack>) -> windows::core::Result<()> {
         todo!()
@@ -481,16 +491,11 @@ impl TrackCollection {
     /// Returns an IITTrack object with the specified name.
     item_by_name!(IITTrack);
 
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
     /// Returns an IITTrack object with the specified persistent ID.
     item_by_persistent_id!(IITTrack);
 }
+
+iterator!(TrackCollection, IITTrack);
 
 /// IITTrack Interface
 ///
@@ -512,7 +517,7 @@ impl Track {
     get_enum!(Kind, ITTrackKind);
 
     /// The playlist that contains this track.
-    get_object!(Playlist, IITPlaylist);
+    get_object!(Playlist, Playlist);
 
     /// The album containing the track.
     get_bstr!(Album);
@@ -668,7 +673,7 @@ impl Track {
     set_long!(Year);
 
     /// Returns a collection of artwork.
-    get_object!(Artwork, IITArtworkCollection);
+    get_object!(Artwork, ArtworkCollection);
 }
 
 /// IITArtwork Interface
@@ -704,21 +709,9 @@ impl Artwork {
 /// See the generated [`IITArtworkCollection_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(ArtworkCollection);
 
-impl ArtworkCollection {
-    /// Returns the number of pieces of artwork in the collection.
-    get_long!(Count);
+impl ArtworkCollection {}
 
-    /// Returns an IITArtwork object corresponding to the given index (1-based).
-    item!(IITArtwork);
-
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
-}
+iterator!(ArtworkCollection, IITArtwork);
 
 /// IITSourceCollection Interface
 ///
@@ -726,25 +719,14 @@ impl ArtworkCollection {
 com_wrapper_struct!(SourceCollection);
 
 impl SourceCollection {
-    /// Returns the number of sources in the collection.
-    get_long!(Count);
-
-    /// Returns an IITSource object corresponding to the given index (1-based).
-    item!(IITSource);
-
     /// Returns an IITSource object with the specified name.
     item_by_name!(IITSource);
 
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
     /// Returns an IITSource object with the specified persistent ID.
     item_by_persistent_id!(IITSource);
 }
+
+iterator!(SourceCollection, IITSource);
 
 /// IITEncoder Interface
 ///
@@ -765,23 +747,11 @@ impl Encoder {
 com_wrapper_struct!(EncoderCollection);
 
 impl EncoderCollection {
-    /// Returns the number of encoders in the collection.
-    get_long!(Count);
-
-    /// Returns an IITEncoder object corresponding to the given index (1-based).
-    item!(IITEncoder);
-
     /// Returns an IITEncoder object with the specified name.
     item_by_name!(IITEncoder);
-
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
 }
+
+iterator!(EncoderCollection, IITEncoder);
 
 /// IITEQPreset Interface
 ///
@@ -876,23 +846,11 @@ impl EQPreset {
 com_wrapper_struct!(EQPresetCollection);
 
 impl EQPresetCollection {
-    /// Returns the number of EQ presets in the collection.
-    get_long!(Count);
-
-    /// Returns an IITEQPreset object corresponding to the given index (1-based).
-    item!(IITEQPreset);
-
     /// Returns an IITEQPreset object with the specified name.
     item_by_name!(IITEQPreset);
-
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
 }
+
+iterator!(EQPresetCollection, IITEQPreset);
 
 /// IITOperationStatus Interface
 ///
@@ -904,7 +862,7 @@ impl OperationStatus {
     get_bool!(InProgress);
 
     /// Returns a collection containing the tracks that were generated by the operation.
-    get_object!(Tracks, IITTrackCollection);
+    get_object!(Tracks, TrackCollection);
 }
 
 /// IITConvertOperationStatus Interface
@@ -1009,7 +967,7 @@ impl URLTrack {
     get_enum!(ratingKind, ITRatingKind);
 
     /// Returns a collection of playlists that contain the song that this track represents.
-    get_object!(Playlists, IITPlaylistCollection);
+    get_object!(Playlists, PlaylistCollection);
 }
 
 /// IITUserPlaylist Interface
@@ -1047,7 +1005,7 @@ impl UserPlaylist {
     get_enum!(SpecialKind, ITUserPlaylistSpecialKind);
 
     /// The parent of this playlist.
-    get_object!(Parent, IITUserPlaylist);
+    get_object!(Parent, UserPlaylist);
 
     /// Creates a new playlist in a folder playlist.
     pub fn CreatePlaylist(&self, playlistName: BSTR, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
@@ -1081,23 +1039,11 @@ impl Visual {
 com_wrapper_struct!(VisualCollection);
 
 impl VisualCollection {
-    /// Returns the number of visual plug-ins in the collection.
-    get_long!(Count);
-
-    /// Returns an IITVisual object corresponding to the given index (1-based).
-    item!(IITVisual);
-
     /// Returns an IITVisual object with the specified name.
     item_by_name!(IITVisual);
-
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
 }
+
+iterator!(VisualCollection, IITVisual);
 
 /// IITWindow Interface
 ///
@@ -1194,10 +1140,10 @@ impl BrowserWindow {
     set_bool!(MiniPlayer);
 
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(SelectedTracks, IITTrackCollection);
+    get_object!(SelectedTracks, TrackCollection);
 
     /// The currently selected playlist in the Source list.
-    get_object!(SelectedPlaylist, IITPlaylist);
+    get_object!(SelectedPlaylist, Playlist);
 
     /// The currently selected playlist in the Source list.
     pub fn set_SelectedPlaylist(&self, iPlaylist: *const VARIANT) -> windows::core::Result<()> {
@@ -1211,23 +1157,11 @@ impl BrowserWindow {
 com_wrapper_struct!(WindowCollection);
 
 impl WindowCollection {
-    /// Returns the number of windows in the collection.
-    get_long!(Count);
-
-    /// Returns an IITWindow object corresponding to the given index (1-based).
-    item!(IITWindow);
-
     /// Returns an IITWindow object with the specified name.
     item_by_name!(IITWindow);
-
-    /// Returns an IEnumVARIANT object which can enumerate the collection.
-    ///
-    /// Note: I have not figured out how to use it (calling `.Skip(1)` on the returned `IEnumVARIANT` causes a `STATUS_ACCESS_VIOLATION`).<br/>
-    /// Feel free to open an issue or a pull request to fix this.
-    pub fn _NewEnum(&self, iEnumerator: *mut Option<IEnumVARIANT>) -> windows::core::Result<()> {
-        todo!()
-    }
 }
+
+iterator!(WindowCollection, IITWindow);
 
 /// IiTunes Interface
 ///
@@ -1327,19 +1261,19 @@ impl iTunes {
     no_args!(Quit);
 
     /// Returns a collection of music sources (music library, CD, device, etc.).
-    get_object!(Sources, IITSourceCollection);
+    get_object!(Sources, SourceCollection);
 
     /// Returns a collection of encoders.
-    get_object!(Encoders, IITEncoderCollection);
+    get_object!(Encoders, EncoderCollection);
 
     /// Returns a collection of EQ presets.
-    get_object!(EQPresets, IITEQPresetCollection);
+    get_object!(EQPresets, EQPresetCollection);
 
     /// Returns a collection of visual plug-ins.
-    get_object!(Visuals, IITVisualCollection);
+    get_object!(Visuals, VisualCollection);
 
     /// Returns a collection of windows.
-    get_object!(Windows, IITWindowCollection);
+    get_object!(Windows, WindowCollection);
 
     /// Returns the sound output volume (0 = minimum, 100 = maximum).
     get_long!(SoundVolume);
@@ -1363,10 +1297,10 @@ impl iTunes {
     set_long!(PlayerPosition);
 
     /// Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).
-    get_object!(CurrentEncoder, IITEncoder);
+    get_object!(CurrentEncoder, Encoder);
 
     /// Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).
-    set_object!(CurrentEncoder, IITEncoder);
+    set_object!(CurrentEncoder, Encoder);
 
     /// True if visuals are currently being displayed.
     get_bool!(VisualsEnabled);
@@ -1387,10 +1321,10 @@ impl iTunes {
     set_enum!(VisualSize, ITVisualSize);
 
     /// Returns the currently selected visual plug-in.
-    get_object!(CurrentVisual, IITVisual);
+    get_object!(CurrentVisual, Visual);
 
     /// Returns the currently selected visual plug-in.
-    set_object!(CurrentVisual, IITVisual);
+    set_object!(CurrentVisual, Visual);
 
     /// True if the equalizer is enabled.
     get_bool!(EQEnabled);
@@ -1399,10 +1333,10 @@ impl iTunes {
     set_bool!(EQEnabled);
 
     /// Returns the currently selected EQ preset.
-    get_object!(CurrentEQPreset, IITEQPreset);
+    get_object!(CurrentEQPreset, EQPreset);
 
     /// Returns the currently selected EQ preset.
-    set_object!(CurrentEQPreset, IITEQPreset);
+    set_object!(CurrentEQPreset, EQPreset);
 
     /// The name of the current song in the playing stream (provided by streaming server).
     get_bstr!(CurrentStreamTitle);
@@ -1411,25 +1345,25 @@ impl iTunes {
     get_bstr!(set_CurrentStreamURL);
 
     /// Returns the main iTunes browser window.
-    get_object!(BrowserWindow, IITBrowserWindow);
+    get_object!(BrowserWindow, BrowserWindow);
 
     /// Returns the EQ window.
-    get_object!(EQWindow, IITWindow);
+    get_object!(EQWindow, Window);
 
     /// Returns the source that represents the main library.
-    get_object!(LibrarySource, IITSource);
+    get_object!(LibrarySource, Source);
 
     /// Returns the main library playlist in the main library source.
-    get_object!(LibraryPlaylist, IITLibraryPlaylist);
+    get_object!(LibraryPlaylist, LibraryPlaylist);
 
     /// Returns the currently targeted track.
-    get_object!(CurrentTrack, IITTrack);
+    get_object!(CurrentTrack, Track);
 
     /// Returns the playlist containing the currently targeted track.
-    get_object!(CurrentPlaylist, IITPlaylist);
+    get_object!(CurrentPlaylist, Playlist);
 
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(SelectedTracks, IITTrackCollection);
+    get_object!(SelectedTracks, TrackCollection);
 
     /// Returns the version of the iTunes application.
     get_bstr!(Version);
@@ -1491,7 +1425,7 @@ impl iTunes {
         todo!()
     }
     /// Returns an IITConvertOperationStatus object if there is currently a conversion in progress.
-    get_object!(ConvertOperationStatus, IITConvertOperationStatus);
+    get_object!(ConvertOperationStatus, ConvertOperationStatus);
 
     /// Subscribe to the specified podcast feed URL.
     set_bstr!(SubscribeToPodcast, no_set_prefix);
@@ -1757,7 +1691,7 @@ impl FileOrCDTrack {
     get_enum!(ratingKind, ITRatingKind);
 
     /// Returns a collection of playlists that contain the song that this track represents.
-    get_object!(Playlists, IITPlaylistCollection);
+    get_object!(Playlists, PlaylistCollection);
 
     /// The full path to the file represented by this track.
     set_bstr!(Location);
@@ -1773,8 +1707,8 @@ com_wrapper_struct!(PlaylistWindow);
 
 impl PlaylistWindow {
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(SelectedTracks, IITTrackCollection);
+    get_object!(SelectedTracks, TrackCollection);
 
     /// The playlist displayed in the window.
-    get_object!(Playlist, IITPlaylist);
+    get_object!(Playlist, Playlist);
 }
