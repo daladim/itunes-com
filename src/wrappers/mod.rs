@@ -42,22 +42,25 @@ use private::ComObjectWrapper;
 macro_rules! com_wrapper_struct {
     ($struct_name:ident) => {
         ::paste::paste! {
-            pub struct $struct_name {
-                com_object: crate::com::[<IIT $struct_name>],
+            com_wrapper_struct!($struct_name as [<IIT $struct_name>]);
+        }
+    };
+    ($struct_name:ident as $com_type:ident) => {
+        pub struct $struct_name {
+            com_object: crate::com::$com_type,
+        }
+
+        impl private::ComObjectWrapper for $struct_name {
+            type WrappedType = $com_type;
+
+            fn from_com_object(com_object: crate::com::$com_type) -> Self {
+                Self {
+                    com_object
+                }
             }
 
-            impl private::ComObjectWrapper for $struct_name {
-                type WrappedType = [<IIT $struct_name>];
-
-                fn from_com_object(com_object: crate::com::[<IIT $struct_name>]) -> Self {
-                    Self {
-                        com_object
-                    }
-                }
-
-                fn com_object(&self) -> &crate::com::[<IIT $struct_name>] {
-                    &self.com_object
-                }
+            fn com_object(&self) -> &crate::com::$com_type {
+                &self.com_object
             }
         }
     }
@@ -71,14 +74,11 @@ macro_rules! str_to_bstr {
 }
 
 macro_rules! no_args {
-    ($func_name:ident) => {
-        pub fn $func_name(&self) -> windows::core::Result<()> {
-            let result: HRESULT = unsafe{ self.com_object.$func_name() };
-            result.ok()
-        }
+    ($vis:vis $func_name:ident) => {
+        no_args!($vis $func_name as <Self as ComObjectWrapper>::WrappedType);
     };
-    (not_pub $func_name:ident as $inherited_type:ty) => {
-        fn $func_name(&self) -> windows::core::Result<()> {
+    ($vis:vis $func_name:ident as $inherited_type:ty) => {
+        $vis fn $func_name(&self) -> windows::core::Result<()> {
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result: HRESULT = unsafe{ inherited_obj.$func_name() };
             result.ok()
@@ -87,18 +87,11 @@ macro_rules! no_args {
 }
 
 macro_rules! get_bstr {
-    ($func_name:ident) => {
-        pub fn $func_name(&self) -> windows::core::Result<String> {
-            let mut bstr = BSTR::default();
-            let result = unsafe{ self.com_object.$func_name(&mut bstr) };
-            result.ok()?;
-
-            let v: Vec<u16> = bstr.as_wide().to_vec();
-            Ok(U16CString::from_vec_truncate(v).to_string_lossy())
-        }
+    ($vis:vis $func_name:ident) => {
+        get_bstr!($vis $func_name as <Self as ComObjectWrapper>::WrappedType);
     };
-    (not_pub $func_name:ident as $inherited_type:ty) => {
-        fn $func_name(&self) -> windows::core::Result<String> {
+    ($vis:vis $func_name:ident as $inherited_type:ty) => {
+        $vis fn $func_name(&self) -> windows::core::Result<String> {
             let mut bstr = BSTR::default();
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name(&mut bstr) };
@@ -110,45 +103,34 @@ macro_rules! get_bstr {
     }
 }
 
-macro_rules! set_bstr {
-    ($key:ident) => {
-        ::paste::paste! {
-            pub fn [<set _$key>](&self, $key: String) -> windows::core::Result<()> {
-                str_to_bstr!($key, bstr);
-                let result = unsafe{ self.com_object.[<set _$key>](bstr) };
-                result.ok()
-            }
-        }
-    };
-    ($key:ident, no_set_prefix) => {
-        pub fn $key(&self, $key: String) -> windows::core::Result<()> {
+macro_rules! internal_set_bstr {
+    ($vis:vis $func_name:ident as $inherited_type:ty, key = $key:ident) => {
+        $vis fn $func_name(&self, $key: String) -> windows::core::Result<()> {
             str_to_bstr!($key, bstr);
-            let result = unsafe{ self.com_object.$key(bstr) };
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name(bstr) };
             result.ok()
-        }
-    };
-    (not_pub $key:ident as $inherited_type:ty) => {
-        ::paste::paste! {
-            fn [<set _$key>](&self, $key: String) -> windows::core::Result<()> {
-                str_to_bstr!($key, bstr);
-                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
-                let result = unsafe{ inherited_obj.[<set _$key>](bstr) };
-                result.ok()?;
-                Ok(())
-            }
         }
     };
 }
 
-macro_rules! get_long_with_vis {
-    ($vis:vis $func_name:ident) => {
-        $vis fn $func_name(&self) -> windows::core::Result<LONG> {
-            let mut value: LONG = 0;
-            let result = unsafe{ self.com_object.$func_name(&mut value as *mut LONG) };
-            result.ok()?;
-
-            Ok(value)
+macro_rules! set_bstr {
+    ($vis:vis $key:ident) => {
+        set_bstr!($vis $key as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $key:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            internal_set_bstr!($vis [<set_ $key>] as $inherited_type, key = $key);
         }
+    };
+    ($vis:vis $key:ident, no_set_prefix) => {
+        internal_set_bstr!($vis $key as <Self as ComObjectWrapper>::WrappedType, key = $key);
+    };
+}
+
+macro_rules! get_long {
+    ($vis:vis $func_name:ident) => {
+        get_long!($vis $func_name as <Self as ComObjectWrapper>::WrappedType);
     };
     ($vis:vis $func_name:ident as $inherited_type:ty) => {
         $vis fn $func_name(&self) -> windows::core::Result<LONG> {
@@ -162,30 +144,18 @@ macro_rules! get_long_with_vis {
     };
 }
 
-macro_rules! get_long {
-    ($func_name:ident) => {
-        get_long_with_vis!(pub $func_name);
-    };
-    (not_pub $func_name:ident) => {
-        get_long_with_vis!($func_name);
-    };
-    (not_pub $func_name:ident as $inherited_type:ty) => {
-        get_long_with_vis!($func_name as $inherited_type);
-    };
-}
-
 macro_rules! set_long {
-    ($key:ident) => {
+    ($vis:vis $key:ident) => {
         ::paste::paste! {
-            pub fn [<set _$key>](&self, $key: LONG) -> windows::core::Result<()> {
+            $vis fn [<set _$key>](&self, $key: LONG) -> windows::core::Result<()> {
                 let result = unsafe{ self.com_object.[<set _$key>]($key) };
                 result.ok()
             }
         }
     };
-    ($key:ident, no_set_prefix) => {
+    ($vis:vis $key:ident, no_set_prefix) => {
         ::paste::paste! {
-            pub fn [<set _$key>](&self, $key: LONG) -> windows::core::Result<()> {
+            $vis fn [<set _$key>](&self, $key: LONG) -> windows::core::Result<()> {
                 let result = unsafe{ self.com_object.$key($key) };
                 result.ok()
             }
@@ -194,17 +164,11 @@ macro_rules! set_long {
 }
 
 macro_rules! get_f64 {
-    ($func_name:ident, $float_name:ty) => {
-        pub fn $func_name(&self) -> windows::core::Result<$float_name> {
-            let mut value: f64 = 0.0;
-            let result = unsafe{ self.com_object.$func_name(&mut value) };
-            result.ok()?;
-
-            Ok(value)
-        }
+    ($vis:vis $func_name:ident, $float_name:ty) => {
+        get_f64!($vis $func_name, $float_name as <Self as ComObjectWrapper>::WrappedType);
     };
-    (not_pub $func_name:ident, $float_name:ty as $inherited_type:ty) => {
-        fn $func_name(&self) -> windows::core::Result<$float_name> {
+    ($vis:vis $func_name:ident, $float_name:ty as $inherited_type:ty) => {
+        $vis fn $func_name(&self) -> windows::core::Result<$float_name> {
             let mut value: f64 = 0.0;
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name(&mut value) };
@@ -216,9 +180,9 @@ macro_rules! get_f64 {
 }
 
 macro_rules! set_f64 {
-    ($key:ident, $float_name:ty) => {
+    ($vis:vis $key:ident, $float_name:ty) => {
         ::paste::paste! {
-            pub fn [<set _$key>](&self, $key: $float_name) -> windows::core::Result<()> {
+            $vis fn [<set _$key>](&self, $key: $float_name) -> windows::core::Result<()> {
                 let result = unsafe{ self.com_object.[<set _$key>]($key) };
                 result.ok()
             }
@@ -227,47 +191,39 @@ macro_rules! set_f64 {
 }
 
 macro_rules! get_double {
-    ($key:ident) => {
-        get_f64!($key, f64);
+    ($vis:vis $key:ident) => {
+        get_f64!($vis $key, f64);
     };
-    (not_pub $key:ident as $inherited_type:ty) => {
-        get_f64!(not_pub $key, f64 as $inherited_type);
+    ($vis:vis $key:ident as $inherited_type:ty) => {
+        get_f64!($vis $key, f64 as $inherited_type);
     }
 }
 
 macro_rules! set_double {
-    ($key:ident) => {
-        set_f64!($key, f64);
+    ($vis:vis $key:ident) => {
+        set_f64!($vis $key, f64);
     }
 }
 
 macro_rules! get_date {
-    ($key:ident) => {
-        get_f64!($key, DATE);
+    ($vis:vis $key:ident) => {
+        get_f64!($vis $key, DATE);
     }
 }
 
 macro_rules! set_date {
-    ($key:ident) => {
-        set_f64!($key, DATE);
+    ($vis:vis $key:ident) => {
+        set_f64!($vis $key, DATE);
     }
 }
 
 macro_rules! get_bool {
-    ($func_name:ident) => {
-        ::paste::paste! {
-            pub fn [<is _$func_name>](&self) -> windows::core::Result<bool> {
-                let mut value = crate::com::FALSE;
-                let result = unsafe{ self.com_object.$func_name(&mut value) };
-                result.ok()?;
-
-                Ok(value.as_bool())
-            }
-        }
+    ($vis:vis $func_name:ident) => {
+        get_bool!($vis $func_name as <Self as ComObjectWrapper>::WrappedType);
     };
-    (not_pub $func_name:ident as $inherited_type:ty) => {
+    ($vis:vis $func_name:ident as $inherited_type:ty) => {
         ::paste::paste! {
-            fn [<is _$func_name>](&self) -> windows::core::Result<bool> {
+            $vis fn [<is _$func_name>](&self) -> windows::core::Result<bool> {
                 let mut value = crate::com::FALSE;
                 let inherited_obj = self.com_object().cast::<$inherited_type>()?;
                 let result = unsafe{ inherited_obj.$func_name(&mut value) };
@@ -279,59 +235,43 @@ macro_rules! get_bool {
     };
 }
 
-macro_rules! set_bool {
-    ($key:ident) => {
-        ::paste::paste! {
-            pub fn [<set _$key>](&self, $key: bool) -> windows::core::Result<()> {
-                let variant_bool = match $key {
-                    true => crate::com::TRUE,
-                    false => crate::com::FALSE,
-                };
-                let result = unsafe{ self.com_object.[<set _$key>](variant_bool) };
-                result.ok()
-            }
-        }
-    };
-    ($key:ident, $arg_name:ident, no_set_prefix) => {
-        ::paste::paste! {
-            pub fn [<set _$key>](&self, $arg_name: bool) -> windows::core::Result<()> {
-                let variant_bool = match $arg_name {
-                    true => crate::com::TRUE,
-                    false => crate::com::FALSE,
-                };
-                let result = unsafe{ self.com_object.$key(variant_bool) };
-                result.ok()
-            }
-        }
-    };
-    (not_pub $key:ident as $inherited_type:ty) => {
-        ::paste::paste! {
-            fn [<set _$key>](&self, $key: bool) -> windows::core::Result<()> {
-                let variant_bool = match $key {
-                    true => crate::com::TRUE,
-                    false => crate::com::FALSE,
-                };
-                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
-                let result = unsafe{ inherited_obj.[<set _$key>](variant_bool) };
-                result.ok()?;
-                Ok(())
-            }
+
+
+macro_rules! internal_set_bool {
+    ($vis:vis $func_name:ident as $inherited_type:ty, key = $key:ident) => {
+        $vis fn $func_name(&self, $key: bool) -> windows::core::Result<()> {
+            let variant_bool = match $key {
+                true => crate::com::TRUE,
+                false => crate::com::FALSE,
+            };
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name(variant_bool) };
+            result.ok()
         }
     };
 }
 
-
-macro_rules! get_enum {
-    ($fn_name:ident, $enum_type:ty) => {
-        pub fn $fn_name(&self) -> windows::core::Result<$enum_type> {
-            let mut value: $enum_type = FromPrimitive::from_i32(0).unwrap();
-            let result = unsafe{ self.com_object.$fn_name(&mut value as *mut _) };
-            result.ok()?;
-            Ok(value)
+macro_rules! set_bool {
+    ($vis:vis $key:ident) => {
+        set_bool!($vis $key as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $key:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            internal_set_bool!($vis [<set_ $key>] as $inherited_type, key = $key);
         }
     };
-    (not_pub $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
-        fn $fn_name(&self) -> windows::core::Result<$enum_type> {
+    ($vis:vis $key:ident, no_set_prefix) => {
+        internal_set_bool!($vis $key as <Self as ComObjectWrapper>::WrappedType, key = $key);
+    }
+}
+
+
+macro_rules! get_enum {
+    ($vis:vis $fn_name:ident, $enum_type:ty) => {
+        get_enum!($vis $fn_name, $enum_type as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
+        $vis fn $fn_name(&self) -> windows::core::Result<$enum_type> {
             let mut value: $enum_type = FromPrimitive::from_i32(0).unwrap();
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$fn_name(&mut value as *mut _) };
@@ -342,17 +282,12 @@ macro_rules! get_enum {
 }
 
 macro_rules! set_enum {
-    ($fn_name:ident, $enum_type:ty) => {
-        ::paste::paste! {
-            pub fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set _$fn_name>](value) };
-                result.ok()
-            }
-        }
+    ($vis:vis $fn_name:ident, $enum_type:ty) => {
+        set_enum!($vis $fn_name, $enum_type as <Self as ComObjectWrapper>::WrappedType);
     };
-    (not_pub $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
+    ($vis:vis $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
         ::paste::paste! {
-            fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
+            $vis fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
                 let inherited_obj = self.com_object().cast::<$inherited_type>()?;
                 let result = unsafe{ inherited_obj.[<set _$fn_name>](value) };
                 result.ok()?;
@@ -377,17 +312,11 @@ macro_rules! create_wrapped_object {
 }
 
 macro_rules! get_object {
-    ($fn_name:ident, $obj_type:ident) => {
-        pub fn $fn_name(&self) -> windows::core::Result<$obj_type> {
-            let mut out_obj = None;
-            let result = unsafe{ self.com_object.$fn_name(&mut out_obj as *mut _) };
-            result.ok()?;
-
-            create_wrapped_object!($obj_type, out_obj)
-        }
+    ($vis:vis $fn_name:ident, $obj_type:ident) => {
+        get_object!($vis $fn_name, $obj_type as <Self as ComObjectWrapper>::WrappedType);
     };
-    (not_pub $fn_name:ident, $obj_type:ident as $inherited_type:ty) => {
-        fn $fn_name(&self) -> windows::core::Result<$obj_type> {
+    ($vis:vis $fn_name:ident, $obj_type:ident as $inherited_type:ty) => {
+        $vis fn $fn_name(&self) -> windows::core::Result<$obj_type> {
             let mut out_obj = None;
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$fn_name(&mut out_obj as *mut _) };
@@ -399,9 +328,9 @@ macro_rules! get_object {
 }
 
 macro_rules! set_object {
-    ($fn_name:ident, $obj_type:ident) => {
+    ($vis:vis $fn_name:ident, $obj_type:ident) => {
         ::paste::paste! {
-            pub fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
+            $vis fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
                 let object_to_set = data.com_object();
                 let result = unsafe{ self.com_object.[<set _$fn_name>](object_to_set as *const _) };
                 result.ok()
@@ -411,8 +340,8 @@ macro_rules! set_object {
 }
 
 macro_rules! item_by_name {
-    ($obj_type:ident) => {
-        pub fn ItemByName(&self, name: String) -> windows::core::Result<$obj_type> {
+    ($vis:vis $obj_type:ident) => {
+        $vis fn ItemByName(&self, name: String) -> windows::core::Result<$obj_type> {
             str_to_bstr!(name, bstr);
 
             let mut out_obj = None;
@@ -425,8 +354,8 @@ macro_rules! item_by_name {
 }
 
 macro_rules! item_by_persistent_id {
-    ($obj_type:ident) => {
-        pub fn ItemByPersistentID(&self, id: u64) -> windows::core::Result<$obj_type> {
+    ($vis:vis $obj_type:ident) => {
+        $vis fn ItemByPersistentID(&self, id: u64) -> windows::core::Result<$obj_type> {
             let b = id.to_le_bytes();
             let id_high = i32::from_le_bytes(b[..4].try_into().unwrap());
             let id_low = i32::from_le_bytes(b[4..].try_into().unwrap());
@@ -461,7 +390,7 @@ macro_rules! iterator {
         impl Iterable for $obj_type {
             type Item = $item_type;
 
-            get_long!(not_pub Count);
+            get_long!(Count);
 
             /// Returns an $item_type object corresponding to the given index (1-based).
             fn item(&self, index: LONG) -> windows::core::Result<<Self as Iterable>::Item> {
@@ -520,25 +449,25 @@ pub trait IITObjectWrapper: private::ComObjectWrapper {
     }
 
     /// The name of the object.
-    get_bstr!(not_pub Name as IITObject);
+    get_bstr!(Name as IITObject);
 
     /// The name of the object.
-    set_bstr!(not_pub Name as IITObject);
+    set_bstr!(Name as IITObject);
 
     /// The index of the object in internal application order (1-based).
-    get_long!(not_pub Index as IITObject);
+    get_long!(Index as IITObject);
 
     /// The source ID of the object.
-    get_long!(not_pub sourceID as IITObject);
+    get_long!(sourceID as IITObject);
 
     /// The playlist ID of the object.
-    get_long!(not_pub playlistID as IITObject);
+    get_long!(playlistID as IITObject);
 
     /// The track ID of the object.
-    get_long!(not_pub trackID as IITObject);
+    get_long!(trackID as IITObject);
 
     /// The track database ID of the object.
-    get_long!(not_pub TrackDatabaseID as IITObject);
+    get_long!(TrackDatabaseID as IITObject);
 }
 
 /// IITSource Interface
@@ -550,16 +479,16 @@ impl IITObjectWrapper for Source {}
 
 impl Source {
     /// The source kind.
-    get_enum!(Kind, ITSourceKind);
+    get_enum!(pub Kind, ITSourceKind);
 
     /// The total size of the source, if it has a fixed size.
-    get_double!(Capacity);
+    get_double!(pub Capacity);
 
     /// The free space on the source, if it has a fixed size.
-    get_double!(FreeSpace);
+    get_double!(pub FreeSpace);
 
     /// Returns a collection of playlists.
-    get_object!(Playlists, PlaylistCollection);
+    get_object!(pub Playlists, PlaylistCollection);
 }
 
 /// IITPlaylistCollection Interface
@@ -569,10 +498,10 @@ com_wrapper_struct!(PlaylistCollection);
 
 impl PlaylistCollection {
     /// Returns an IITPlaylist object with the specified name.
-    item_by_name!(Playlist);
+    item_by_name!(pub Playlist);
 
     /// Returns an IITPlaylist object with the specified persistent ID.
-    item_by_persistent_id!(Playlist);
+    item_by_persistent_id!(pub Playlist);
 }
 
 iterator!(PlaylistCollection, Playlist);
@@ -581,10 +510,10 @@ iterator!(PlaylistCollection, Playlist);
 /// Several COM objects inherit from this class, which provides some extra methods
 pub trait IITPlaylistWrapper: private::ComObjectWrapper {
     /// Delete this playlist.
-    no_args!(not_pub Delete as IITPlaylist);
+    no_args!(Delete as IITPlaylist);
 
     /// Start playing the first track in this playlist.
-    no_args!(not_pub PlayFirstTrack as IITPlaylist);
+    no_args!(PlayFirstTrack as IITPlaylist);
 
     /// Print this playlist.
     fn Print(&self, showPrintDialog: bool, printKind: ITPlaylistPrintKind, theme: String) -> windows::core::Result<()> {
@@ -609,37 +538,37 @@ pub trait IITPlaylistWrapper: private::ComObjectWrapper {
     }
 
     /// The playlist kind.
-    get_enum!(not_pub Kind, ITPlaylistKind as IITPlaylist);
+    get_enum!(Kind, ITPlaylistKind as IITPlaylist);
 
     /// The source that contains this playlist.
-    get_object!(not_pub Source, Source as IITPlaylist);
+    get_object!(Source, Source as IITPlaylist);
 
     /// The total length of all songs in the playlist (in seconds).
-    get_long!(not_pub Duration as IITPlaylist);
+    get_long!(Duration as IITPlaylist);
 
     /// True if songs in the playlist are played in random order.
-    get_bool!(not_pub Shuffle as IITPlaylist);
+    get_bool!(Shuffle as IITPlaylist);
 
     /// True if songs in the playlist are played in random order.
-    set_bool!(not_pub Shuffle as IITPlaylist);
+    set_bool!(Shuffle as IITPlaylist);
 
     /// The total size of all songs in the playlist (in bytes).
-    get_double!(not_pub Size as IITPlaylist);
+    get_double!(Size as IITPlaylist);
 
     /// The playback repeat mode.
-    get_enum!(not_pub SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
+    get_enum!(SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
 
     /// The playback repeat mode.
-    set_enum!(not_pub SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
+    set_enum!(SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
 
     /// The total length of all songs in the playlist (in MM:SS format).
-    get_bstr!(not_pub Time as IITPlaylist);
+    get_bstr!(Time as IITPlaylist);
 
     /// True if the playlist is visible in the Source list.
-    get_bool!(not_pub Visible as IITPlaylist);
+    get_bool!(Visible as IITPlaylist);
 
     /// Returns a collection of tracks in this playlist.
-    get_object!(not_pub Tracks, TrackCollection as IITPlaylist);
+    get_object!(Tracks, TrackCollection as IITPlaylist);
 }
 
 /// IITPlaylist Interface
@@ -663,10 +592,10 @@ impl TrackCollection {
         todo!()
     }
     /// Returns an IITTrack object with the specified name.
-    item_by_name!(Track);
+    item_by_name!(pub Track);
 
     /// Returns an IITTrack object with the specified persistent ID.
-    item_by_persistent_id!(Track);
+    item_by_persistent_id!(pub Track);
 }
 
 iterator!(TrackCollection, Track);
@@ -680,176 +609,176 @@ impl IITObjectWrapper for Track {}
 
 impl Track {
     /// Delete this track.
-    no_args!(Delete);
+    no_args!(pub Delete);
 
     /// Start playing this track.
-    no_args!(Play);
+    no_args!(pub Play);
 
     /// Add artwork from an image file to this track.
     pub fn AddArtworkFromFile(&self, filePath: BSTR, iArtwork: *mut Option<IITArtwork>) -> windows::core::Result<()> {
         todo!()
     }
     /// The track kind.
-    get_enum!(Kind, ITTrackKind);
+    get_enum!(pub Kind, ITTrackKind);
 
     /// The playlist that contains this track.
-    get_object!(Playlist, Playlist);
+    get_object!(pub Playlist, Playlist);
 
     /// The album containing the track.
-    get_bstr!(Album);
+    get_bstr!(pub Album);
 
     /// The album containing the track.
-    set_bstr!(Album);
+    set_bstr!(pub Album);
 
     /// The artist/source of the track.
-    get_bstr!(Artist);
+    get_bstr!(pub Artist);
 
     /// The artist/source of the track.
-    set_bstr!(Artist);
+    set_bstr!(pub Artist);
 
     /// The bit rate of the track (in kbps).
-    get_long!(BitRate);
+    get_long!(pub BitRate);
 
     /// The tempo of the track (in beats per minute).
-    get_long!(BPM);
+    get_long!(pub BPM);
 
     /// The tempo of the track (in beats per minute).
-    set_long!(BPM);
+    set_long!(pub BPM);
 
     /// Freeform notes about the track.
-    get_bstr!(Comment);
+    get_bstr!(pub Comment);
 
     /// Freeform notes about the track.
-    set_bstr!(Comment);
+    set_bstr!(pub Comment);
 
     /// True if this track is from a compilation album.
-    get_bool!(Compilation);
+    get_bool!(pub Compilation);
 
     /// True if this track is from a compilation album.
-    set_bool!(Compilation);
+    set_bool!(pub Compilation);
 
     /// The composer of the track.
-    get_bstr!(Composer);
+    get_bstr!(pub Composer);
 
     /// The composer of the track.
-    set_bstr!(Composer);
+    set_bstr!(pub Composer);
 
     /// The date the track was added to the playlist.
-    get_date!(DateAdded);
+    get_date!(pub DateAdded);
 
     /// The total number of discs in the source album.
-    get_long!(DiscCount);
+    get_long!(pub DiscCount);
 
     /// The total number of discs in the source album.
-    set_long!(DiscCount);
+    set_long!(pub DiscCount);
 
     /// The index of the disc containing the track on the source album.
-    get_long!(DiscNumber);
+    get_long!(pub DiscNumber);
 
     /// The index of the disc containing the track on the source album.
-    set_long!(DiscNumber);
+    set_long!(pub DiscNumber);
 
     /// The length of the track (in seconds).
-    get_long!(Duration);
+    get_long!(pub Duration);
 
     /// True if the track is checked for playback.
-    get_bool!(Enabled);
+    get_bool!(pub Enabled);
 
     /// True if the track is checked for playback.
-    set_bool!(Enabled);
+    set_bool!(pub Enabled);
 
     /// The name of the EQ preset of the track.
-    get_bstr!(EQ);
+    get_bstr!(pub EQ);
 
     /// The name of the EQ preset of the track.
-    set_bstr!(EQ);
+    set_bstr!(pub EQ);
 
     /// The stop time of the track (in seconds).
-    set_long!(Finish);
+    set_long!(pub Finish);
 
     /// The stop time of the track (in seconds).
-    get_long!(Finish);
+    get_long!(pub Finish);
 
     /// The music/audio genre (category) of the track.
-    get_bstr!(Genre);
+    get_bstr!(pub Genre);
 
     /// The music/audio genre (category) of the track.
-    set_bstr!(Genre);
+    set_bstr!(pub Genre);
 
     /// The grouping (piece) of the track.  Generally used to denote movements within classical work.
-    get_bstr!(Grouping);
+    get_bstr!(pub Grouping);
 
     /// The grouping (piece) of the track.  Generally used to denote movements within classical work.
-    set_bstr!(Grouping);
+    set_bstr!(pub Grouping);
 
     /// A text description of the track.
-    get_bstr!(KindAsString);
+    get_bstr!(pub KindAsString);
 
     /// The modification date of the content of the track.
-    get_date!(ModificationDate);
+    get_date!(pub ModificationDate);
 
     /// The number of times the track has been played.
-    get_long!(PlayedCount);
+    get_long!(pub PlayedCount);
 
     /// The number of times the track has been played.
-    set_long!(PlayedCount);
+    set_long!(pub PlayedCount);
 
     /// The date and time the track was last played.  A value of zero means no played date.
-    get_date!(PlayedDate);
+    get_date!(pub PlayedDate);
 
     /// The date and time the track was last played.  A value of zero means no played date.
-    set_date!(PlayedDate);
+    set_date!(pub PlayedDate);
 
     /// The play order index of the track in the owner playlist (1-based).
-    get_long!(PlayOrderIndex);
+    get_long!(pub PlayOrderIndex);
 
     /// The rating of the track (0 to 100).
-    get_long!(Rating);
+    get_long!(pub Rating);
 
     /// The rating of the track (0 to 100).
-    set_long!(Rating);
+    set_long!(pub Rating);
 
     /// The sample rate of the track (in Hz).
-    get_long!(SampleRate);
+    get_long!(pub SampleRate);
 
     /// The size of the track (in bytes).
-    get_long!(Size);
+    get_long!(pub Size);
 
     /// The start time of the track (in seconds).
-    get_long!(Start);
+    get_long!(pub Start);
 
     /// The start time of the track (in seconds).
-    set_long!(Start);
+    set_long!(pub Start);
 
     /// The length of the track (in MM:SS format).
-    get_bstr!(Time);
+    get_bstr!(pub Time);
 
     /// The total number of tracks on the source album.
-    get_long!(TrackCount);
+    get_long!(pub TrackCount);
 
     /// The total number of tracks on the source album.
-    set_long!(TrackCount);
+    set_long!(pub TrackCount);
 
     /// The index of the track on the source album.
-    get_long!(TrackNumber);
+    get_long!(pub TrackNumber);
 
     /// The index of the track on the source album.
-    set_long!(TrackNumber);
+    set_long!(pub TrackNumber);
 
     /// The relative volume adjustment of the track (-100% to 100%).
-    get_long!(VolumeAdjustment);
+    get_long!(pub VolumeAdjustment);
 
     /// The relative volume adjustment of the track (-100% to 100%).
-    set_long!(VolumeAdjustment);
+    set_long!(pub VolumeAdjustment);
 
     /// The year the track was recorded/released.
-    get_long!(Year);
+    get_long!(pub Year);
 
     /// The year the track was recorded/released.
-    set_long!(Year);
+    set_long!(pub Year);
 
     /// Returns a collection of artwork.
-    get_object!(Artwork, ArtworkCollection);
+    get_object!(pub Artwork, ArtworkCollection);
 }
 
 /// IITArtwork Interface
@@ -859,25 +788,25 @@ com_wrapper_struct!(Artwork);
 
 impl Artwork {
     /// Delete this piece of artwork from the track.
-    no_args!(Delete);
+    no_args!(pub Delete);
 
     /// Replace existing artwork data with new artwork from an image file.
-    set_bstr!(SetArtworkFromFile, no_set_prefix);
+    set_bstr!(pub SetArtworkFromFile, no_set_prefix);
 
     /// Save artwork data to an image file.
-    set_bstr!(SaveArtworkToFile, no_set_prefix);
+    set_bstr!(pub SaveArtworkToFile, no_set_prefix);
 
     /// The format of the artwork.
-    get_enum!(Format, ITArtworkFormat);
+    get_enum!(pub Format, ITArtworkFormat);
 
     /// True if the artwork was downloaded by iTunes.
-    get_bool!(IsDownloadedArtwork);
+    get_bool!(pub IsDownloadedArtwork);
 
     /// The description for the artwork.
-    get_bstr!(Description);
+    get_bstr!(pub Description);
 
     /// The description for the artwork.
-    set_bstr!(Description);
+    set_bstr!(pub Description);
 }
 
 /// IITArtworkCollection Interface
@@ -896,10 +825,10 @@ com_wrapper_struct!(SourceCollection);
 
 impl SourceCollection {
     /// Returns an IITSource object with the specified name.
-    item_by_name!(Source);
+    item_by_name!(pub Source);
 
     /// Returns an IITSource object with the specified persistent ID.
-    item_by_persistent_id!(Source);
+    item_by_persistent_id!(pub Source);
 }
 
 iterator!(SourceCollection, Source);
@@ -911,10 +840,10 @@ com_wrapper_struct!(Encoder);
 
 impl Encoder {
     /// The name of the the encoder.
-    get_bstr!(Name);
+    get_bstr!(pub Name);
 
     /// The data format created by the encoder.
-    get_bstr!(Format);
+    get_bstr!(pub Format);
 }
 
 /// IITEncoderCollection Interface
@@ -924,7 +853,7 @@ com_wrapper_struct!(EncoderCollection);
 
 impl EncoderCollection {
     /// Returns an IITEncoder object with the specified name.
-    item_by_name!(Encoder);
+    item_by_name!(pub Encoder);
 }
 
 iterator!(EncoderCollection, Encoder);
@@ -936,79 +865,79 @@ com_wrapper_struct!(EQPreset);
 
 impl EQPreset {
     /// The name of the the EQ preset.
-    get_bstr!(Name);
+    get_bstr!(pub Name);
 
     /// True if this EQ preset can be modified.
-    get_bool!(Modifiable);
+    get_bool!(pub Modifiable);
 
     /// The equalizer preamp level (-12.0 db to +12.0 db).
-    get_double!(Preamp);
+    get_double!(pub Preamp);
 
     /// The equalizer preamp level (-12.0 db to +12.0 db).
-    set_double!(Preamp);
+    set_double!(pub Preamp);
 
     /// The equalizer 32Hz band level (-12.0 db to +12.0 db).
-    get_double!(Band1);
+    get_double!(pub Band1);
 
     /// The equalizer 32Hz band level (-12.0 db to +12.0 db).
-    set_double!(Band1);
+    set_double!(pub Band1);
 
     /// The equalizer 64Hz band level (-12.0 db to +12.0 db).
-    get_double!(Band2);
+    get_double!(pub Band2);
 
     /// The equalizer 64Hz band level (-12.0 db to +12.0 db).
-    set_double!(Band2);
+    set_double!(pub Band2);
 
     /// The equalizer 125Hz band level (-12.0 db to +12.0 db).
-    get_double!(Band3);
+    get_double!(pub Band3);
 
     /// The equalizer 125Hz band level (-12.0 db to +12.0 db).
-    set_double!(Band3);
+    set_double!(pub Band3);
 
     /// The equalizer 250Hz band level (-12.0 db to +12.0 db).
-    get_double!(Band4);
+    get_double!(pub Band4);
 
     /// The equalizer 250Hz band level (-12.0 db to +12.0 db).
-    set_double!(Band4);
+    set_double!(pub Band4);
 
     /// The equalizer 500Hz band level (-12.0 db to +12.0 db).
-    get_double!(Band5);
+    get_double!(pub Band5);
 
     /// The equalizer 500Hz band level (-12.0 db to +12.0 db).
-    set_double!(Band5);
+    set_double!(pub Band5);
 
     /// The equalizer 1KHz band level (-12.0 db to +12.0 db).
-    get_double!(Band6);
+    get_double!(pub Band6);
 
     /// The equalizer 1KHz band level (-12.0 db to +12.0 db).
-    set_double!(Band6);
+    set_double!(pub Band6);
 
     /// The equalizer 2KHz band level (-12.0 db to +12.0 db).
-    get_double!(Band7);
+    get_double!(pub Band7);
 
     /// The equalizer 2KHz band level (-12.0 db to +12.0 db).
-    set_double!(Band7);
+    set_double!(pub Band7);
 
     /// The equalizer 4KHz band level (-12.0 db to +12.0 db).
-    get_double!(Band8);
+    get_double!(pub Band8);
 
     /// The equalizer 4KHz band level (-12.0 db to +12.0 db).
-    set_double!(Band8);
+    set_double!(pub Band8);
 
     /// The equalizer 8KHz band level (-12.0 db to +12.0 db).
-    get_double!(Band9);
+    get_double!(pub Band9);
 
     /// The equalizer 8KHz band level (-12.0 db to +12.0 db).
-    set_double!(Band9);
+    set_double!(pub Band9);
 
     /// The equalizer 16KHz band level (-12.0 db to +12.0 db).
-    get_double!(Band10);
+    get_double!(pub Band10);
 
     /// The equalizer 16KHz band level (-12.0 db to +12.0 db).
-    set_double!(Band10);
+    set_double!(pub Band10);
 
     /// Delete this EQ preset.
-    set_bool!(Delete, updateAllTracks, no_set_prefix);
+    internal_set_bool!(pub Delete as <Self as ComObjectWrapper>::WrappedType, key = updateAllTracks);
 
     /// Rename this EQ preset.
     pub fn Rename(&self, newName: BSTR, updateAllTracks: bool) -> windows::core::Result<()> {
@@ -1023,7 +952,7 @@ com_wrapper_struct!(EQPresetCollection);
 
 impl EQPresetCollection {
     /// Returns an IITEQPreset object with the specified name.
-    item_by_name!(EQPreset);
+    item_by_name!(pub EQPreset);
 }
 
 iterator!(EQPresetCollection, EQPreset);
@@ -1035,10 +964,10 @@ com_wrapper_struct!(OperationStatus);
 
 impl OperationStatus {
     /// True if the operation is still in progress.
-    get_bool!(InProgress);
+    get_bool!(pub InProgress);
 
     /// Returns a collection containing the tracks that were generated by the operation.
-    get_object!(Tracks, TrackCollection);
+    get_object!(pub Tracks, TrackCollection);
 }
 
 /// IITConvertOperationStatus Interface
@@ -1052,16 +981,16 @@ impl ConvertOperationStatus {
         todo!()
     }
     /// Stops the current conversion operation.
-    no_args!(StopConversion);
+    no_args!(pub StopConversion);
 
     /// Returns the name of the track currently being converted.
-    get_bstr!(trackName);
+    get_bstr!(pub trackName);
 
     /// Returns the current progress value for the track being converted.
-    get_long!(progressValue);
+    get_long!(pub progressValue);
 
     /// Returns the maximum progress value for the track being converted.
-    get_long!(maxProgressValue);
+    get_long!(pub maxProgressValue);
 }
 
 /// IITLibraryPlaylist Interface
@@ -1097,55 +1026,55 @@ com_wrapper_struct!(URLTrack);
 
 impl URLTrack {
     /// The URL of the stream represented by this track.
-    get_bstr!(URL);
+    get_bstr!(pub URL);
 
     /// The URL of the stream represented by this track.
-    set_bstr!(URL);
+    set_bstr!(pub URL);
 
     /// True if this is a podcast track.
-    get_bool!(Podcast);
+    get_bool!(pub Podcast);
 
     /// Update the podcast feed for this track.
-    no_args!(UpdatePodcastFeed);
+    no_args!(pub UpdatePodcastFeed);
 
     /// Start downloading the podcast episode that corresponds to this track.
-    no_args!(DownloadPodcastEpisode);
+    no_args!(pub DownloadPodcastEpisode);
 
     /// Category for the track.
-    get_bstr!(Category);
+    get_bstr!(pub Category);
 
     /// Category for the track.
-    set_bstr!(Category);
+    set_bstr!(pub Category);
 
     /// Description for the track.
-    get_bstr!(Description);
+    get_bstr!(pub Description);
 
     /// Description for the track.
-    set_bstr!(Description);
+    set_bstr!(pub Description);
 
     /// Long description for the track.
-    get_bstr!(LongDescription);
+    get_bstr!(pub LongDescription);
 
     /// Long description for the track.
-    set_bstr!(LongDescription);
+    set_bstr!(pub LongDescription);
 
     /// Reveal the track in the main browser window.
-    no_args!(Reveal);
+    no_args!(pub Reveal);
 
     /// The user or computed rating of the album that this track belongs to (0 to 100).
-    get_long!(AlbumRating);
+    get_long!(pub AlbumRating);
 
     /// The user or computed rating of the album that this track belongs to (0 to 100).
-    set_long!(AlbumRating);
+    set_long!(pub AlbumRating);
 
     /// The album rating kind.
-    get_enum!(AlbumRatingKind, ITRatingKind);
+    get_enum!(pub AlbumRatingKind, ITRatingKind);
 
     /// The track rating kind.
-    get_enum!(ratingKind, ITRatingKind);
+    get_enum!(pub ratingKind, ITRatingKind);
 
     /// Returns a collection of playlists that contain the song that this track represents.
-    get_object!(Playlists, PlaylistCollection);
+    get_object!(pub Playlists, PlaylistCollection);
 }
 
 /// IITUserPlaylist Interface
@@ -1173,19 +1102,19 @@ impl UserPlaylist {
         todo!()
     }
     /// True if the user playlist is being shared.
-    get_bool!(Shared);
+    get_bool!(pub Shared);
 
     /// True if the user playlist is being shared.
-    set_bool!(Shared);
+    set_bool!(pub Shared);
 
     /// True if this is a smart playlist.
-    get_bool!(Smart);
+    get_bool!(pub Smart);
 
     /// The playlist special kind.
-    get_enum!(SpecialKind, ITUserPlaylistSpecialKind);
+    get_enum!(pub SpecialKind, ITUserPlaylistSpecialKind);
 
     /// The parent of this playlist.
-    get_object!(Parent, UserPlaylist);
+    get_object!(pub Parent, UserPlaylist);
 
     /// Creates a new playlist in a folder playlist.
     pub fn CreatePlaylist(&self, playlistName: BSTR, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
@@ -1200,7 +1129,7 @@ impl UserPlaylist {
         todo!()
     }
     /// Reveal the user playlist in the main browser window.
-    no_args!(Reveal);
+    no_args!(pub Reveal);
 }
 
 /// IITVisual Interface
@@ -1210,7 +1139,7 @@ com_wrapper_struct!(Visual);
 
 impl Visual {
     /// The name of the the visual plug-in.
-    get_bstr!(Name);
+    get_bstr!(pub Name);
 }
 
 /// IITVisualCollection Interface
@@ -1220,7 +1149,7 @@ com_wrapper_struct!(VisualCollection);
 
 impl VisualCollection {
     /// Returns an IITVisual object with the specified name.
-    item_by_name!(Visual);
+    item_by_name!(pub Visual);
 }
 
 iterator!(VisualCollection, Visual);
@@ -1232,79 +1161,79 @@ com_wrapper_struct!(Window);
 
 impl Window {
     /// The title of the window.
-    get_bstr!(Name);
+    get_bstr!(pub Name);
 
     /// The window kind.
-    get_enum!(Kind, ITWindowKind);
+    get_enum!(pub Kind, ITWindowKind);
 
     /// True if the window is visible. Note that the main browser window cannot be hidden.
-    get_bool!(Visible);
+    get_bool!(pub Visible);
 
     /// True if the window is visible. Note that the main browser window cannot be hidden.
-    set_bool!(Visible);
+    set_bool!(pub Visible);
 
     /// True if the window is resizable.
-    get_bool!(Resizable);
+    get_bool!(pub Resizable);
 
     /// True if the window is minimized.
-    get_bool!(Minimized);
+    get_bool!(pub Minimized);
 
     /// True if the window is minimized.
-    set_bool!(Minimized);
+    set_bool!(pub Minimized);
 
     /// True if the window is maximizable.
-    get_bool!(Maximizable);
+    get_bool!(pub Maximizable);
 
     /// True if the window is maximized.
-    get_bool!(Maximized);
+    get_bool!(pub Maximized);
 
     /// True if the window is maximized.
-    set_bool!(Maximized);
+    set_bool!(pub Maximized);
 
     /// True if the window is zoomable.
-    get_bool!(Zoomable);
+    get_bool!(pub Zoomable);
 
     /// True if the window is zoomed.
-    get_bool!(Zoomed);
+    get_bool!(pub Zoomed);
 
     /// True if the window is zoomed.
-    set_bool!(Zoomed);
+    set_bool!(pub Zoomed);
 
     /// The screen coordinate of the top edge of the window.
-    get_long!(Top);
+    get_long!(pub Top);
 
     /// The screen coordinate of the top edge of the window.
-    set_long!(Top);
+    set_long!(pub Top);
 
     /// The screen coordinate of the left edge of the window.
-    get_long!(Left);
+    get_long!(pub Left);
 
     /// The screen coordinate of the left edge of the window.
-    set_long!(Left);
+    set_long!(pub Left);
 
     /// The screen coordinate of the bottom edge of the window.
-    get_long!(Bottom);
+    get_long!(pub Bottom);
 
     /// The screen coordinate of the bottom edge of the window.
-    set_long!(Bottom);
+    set_long!(pub Bottom);
 
     /// The screen coordinate of the right edge of the window.
-    get_long!(Right);
+    get_long!(pub Right);
 
     /// The screen coordinate of the right edge of the window.
-    set_long!(Right);
+    set_long!(pub Right);
 
     /// The width of the window.
-    get_long!(Width);
+    get_long!(pub Width);
 
     /// The width of the window.
-    set_long!(Width);
+    set_long!(pub Width);
 
     /// The height of the window.
-    get_long!(Height);
+    get_long!(pub Height);
 
     /// The height of the window.
-    set_long!(Height);
+    set_long!(pub Height);
 }
 
 /// IITBrowserWindow Interface
@@ -1314,16 +1243,16 @@ com_wrapper_struct!(BrowserWindow);
 
 impl BrowserWindow {
     /// True if window is in MiniPlayer mode.
-    get_bool!(MiniPlayer);
+    get_bool!(pub MiniPlayer);
 
     /// True if window is in MiniPlayer mode.
-    set_bool!(MiniPlayer);
+    set_bool!(pub MiniPlayer);
 
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(SelectedTracks, TrackCollection);
+    get_object!(pub SelectedTracks, TrackCollection);
 
     /// The currently selected playlist in the Source list.
-    get_object!(SelectedPlaylist, Playlist);
+    get_object!(pub SelectedPlaylist, Playlist);
 
     /// The currently selected playlist in the Source list.
     pub fn set_SelectedPlaylist(&self, iPlaylist: *const VARIANT) -> windows::core::Result<()> {
@@ -1338,7 +1267,7 @@ com_wrapper_struct!(WindowCollection);
 
 impl WindowCollection {
     /// Returns an IITWindow object with the specified name.
-    item_by_name!(Window);
+    item_by_name!(pub Window);
 }
 
 iterator!(WindowCollection, Window);
@@ -1346,9 +1275,7 @@ iterator!(WindowCollection, Window);
 /// IiTunes Interface
 ///
 /// See the generated [`IiTunes_Impl`] trait for more documentation about each function.
-pub struct iTunes {
-    com_object: crate::com::IiTunes,
-}
+com_wrapper_struct!(iTunes as IiTunes);
 
 impl iTunes {
     /// Create a new COM object to communicate with iTunes
@@ -1363,37 +1290,37 @@ impl iTunes {
     }
 
     /// Reposition to the beginning of the current track or go to the previous track if already at start of current track.
-    no_args!(BackTrack);
+    no_args!(pub BackTrack);
 
     /// Skip forward in a playing track.
-    no_args!(FastForward);
+    no_args!(pub FastForward);
 
     /// Advance to the next track in the current playlist.
-    no_args!(NextTrack);
+    no_args!(pub NextTrack);
 
     /// Pause playback.
-    no_args!(Pause);
+    no_args!(pub Pause);
 
     /// Play the currently targeted track.
-    no_args!(Play);
+    no_args!(pub Play);
 
     /// Play the specified file path, adding it to the library if not already present.
-    set_bstr!(PlayFile, no_set_prefix);
+    set_bstr!(pub PlayFile, no_set_prefix);
 
     /// Toggle the playing/paused state of the current track.
-    no_args!(PlayPause);
+    no_args!(pub PlayPause);
 
     /// Return to the previous track in the current playlist.
-    no_args!(PreviousTrack);
+    no_args!(pub PreviousTrack);
 
     /// Disable fast forward/rewind and resume playback, if playing.
-    no_args!(Resume);
+    no_args!(pub Resume);
 
     /// Skip backwards in a playing track.
-    no_args!(Rewind);
+    no_args!(pub Rewind);
 
     /// Stop playback.
-    no_args!(Stop);
+    no_args!(pub Stop);
 
     /// Start converting the specified file path.
     pub fn ConvertFile(&self, filePath: BSTR, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
@@ -1425,13 +1352,13 @@ impl iTunes {
         todo!()
     }
     /// Open the specified iTunes Store or streaming audio URL.
-    set_bstr!(OpenURL, no_set_prefix);
+    set_bstr!(pub OpenURL, no_set_prefix);
 
     /// Go to the iTunes Store home page.
-    no_args!(GotoMusicStoreHomePage);
+    no_args!(pub GotoMusicStoreHomePage);
 
     /// Update the contents of the iPod.
-    no_args!(UpdateIPod);
+    no_args!(pub UpdateIPod);
 
     /// [id(0x60020015)]
     /// (no other documentation provided)
@@ -1439,119 +1366,119 @@ impl iTunes {
         todo!()
     }
     /// Exits the iTunes application.
-    no_args!(Quit);
+    no_args!(pub Quit);
 
     /// Returns a collection of music sources (music library, CD, device, etc.).
-    get_object!(Sources, SourceCollection);
+    get_object!(pub Sources, SourceCollection);
 
     /// Returns a collection of encoders.
-    get_object!(Encoders, EncoderCollection);
+    get_object!(pub Encoders, EncoderCollection);
 
     /// Returns a collection of EQ presets.
-    get_object!(EQPresets, EQPresetCollection);
+    get_object!(pub EQPresets, EQPresetCollection);
 
     /// Returns a collection of visual plug-ins.
-    get_object!(Visuals, VisualCollection);
+    get_object!(pub Visuals, VisualCollection);
 
     /// Returns a collection of windows.
-    get_object!(Windows, WindowCollection);
+    get_object!(pub Windows, WindowCollection);
 
     /// Returns the sound output volume (0 = minimum, 100 = maximum).
-    get_long!(SoundVolume);
+    get_long!(pub SoundVolume);
 
     /// Returns the sound output volume (0 = minimum, 100 = maximum).
-    set_long!(SoundVolume);
+    set_long!(pub SoundVolume);
 
     /// True if sound output is muted.
-    get_bool!(Mute);
+    get_bool!(pub Mute);
 
     /// True if sound output is muted.
-    set_bool!(Mute);
+    set_bool!(pub Mute);
 
     /// Returns the current player state.
-    get_enum!(PlayerState, ITPlayerState);
+    get_enum!(pub PlayerState, ITPlayerState);
 
     /// Returns the player's position within the currently playing track in seconds.
-    get_long!(PlayerPosition);
+    get_long!(pub PlayerPosition);
 
     /// Returns the player's position within the currently playing track in seconds.
-    set_long!(PlayerPosition);
+    set_long!(pub PlayerPosition);
 
     /// Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).
-    get_object!(CurrentEncoder, Encoder);
+    get_object!(pub CurrentEncoder, Encoder);
 
     /// Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).
-    set_object!(CurrentEncoder, Encoder);
+    set_object!(pub CurrentEncoder, Encoder);
 
     /// True if visuals are currently being displayed.
-    get_bool!(VisualsEnabled);
+    get_bool!(pub VisualsEnabled);
 
     /// True if visuals are currently being displayed.
-    set_bool!(VisualsEnabled);
+    set_bool!(pub VisualsEnabled);
 
     /// True if the visuals are displayed using the entire screen.
-    get_bool!(FullScreenVisuals);
+    get_bool!(pub FullScreenVisuals);
 
     /// True if the visuals are displayed using the entire screen.
-    set_bool!(FullScreenVisuals);
+    set_bool!(pub FullScreenVisuals);
 
     /// Returns the size of the displayed visual.
-    get_enum!(VisualSize, ITVisualSize);
+    get_enum!(pub VisualSize, ITVisualSize);
 
     /// Returns the size of the displayed visual.
-    set_enum!(VisualSize, ITVisualSize);
+    set_enum!(pub VisualSize, ITVisualSize);
 
     /// Returns the currently selected visual plug-in.
-    get_object!(CurrentVisual, Visual);
+    get_object!(pub CurrentVisual, Visual);
 
     /// Returns the currently selected visual plug-in.
-    set_object!(CurrentVisual, Visual);
+    set_object!(pub CurrentVisual, Visual);
 
     /// True if the equalizer is enabled.
-    get_bool!(EQEnabled);
+    get_bool!(pub EQEnabled);
 
     /// True if the equalizer is enabled.
-    set_bool!(EQEnabled);
+    set_bool!(pub EQEnabled);
 
     /// Returns the currently selected EQ preset.
-    get_object!(CurrentEQPreset, EQPreset);
+    get_object!(pub CurrentEQPreset, EQPreset);
 
     /// Returns the currently selected EQ preset.
-    set_object!(CurrentEQPreset, EQPreset);
+    set_object!(pub CurrentEQPreset, EQPreset);
 
     /// The name of the current song in the playing stream (provided by streaming server).
-    get_bstr!(CurrentStreamTitle);
+    get_bstr!(pub CurrentStreamTitle);
 
     /// The URL of the playing stream or streaming web site (provided by streaming server).
-    get_bstr!(set_CurrentStreamURL);
+    get_bstr!(pub set_CurrentStreamURL);
 
     /// Returns the main iTunes browser window.
-    get_object!(BrowserWindow, BrowserWindow);
+    get_object!(pub BrowserWindow, BrowserWindow);
 
     /// Returns the EQ window.
-    get_object!(EQWindow, Window);
+    get_object!(pub EQWindow, Window);
 
     /// Returns the source that represents the main library.
-    get_object!(LibrarySource, Source);
+    get_object!(pub LibrarySource, Source);
 
     /// Returns the main library playlist in the main library source.
-    get_object!(LibraryPlaylist, LibraryPlaylist);
+    get_object!(pub LibraryPlaylist, LibraryPlaylist);
 
     /// Returns the currently targeted track.
-    get_object!(CurrentTrack, Track);
+    get_object!(pub CurrentTrack, Track);
 
     /// Returns the playlist containing the currently targeted track.
-    get_object!(CurrentPlaylist, Playlist);
+    get_object!(pub CurrentPlaylist, Playlist);
 
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(SelectedTracks, TrackCollection);
+    get_object!(pub SelectedTracks, TrackCollection);
 
     /// Returns the version of the iTunes application.
-    get_bstr!(Version);
+    get_bstr!(pub Version);
 
     /// [id(0x6002003b)]
     /// (no other documentation provided)
-    set_long!(SetOptions, no_set_prefix);
+    set_long!(pub SetOptions, no_set_prefix);
 
     /// Start converting the specified file path.
     pub fn ConvertFile2(&self, filePath: BSTR, iStatus: *mut Option<IITConvertOperationStatus>) -> windows::core::Result<()> {
@@ -1570,16 +1497,16 @@ impl iTunes {
         todo!()
     }
     /// True if iTunes will process APPCOMMAND Windows messages.
-    get_bool!(AppCommandMessageProcessingEnabled);
+    get_bool!(pub AppCommandMessageProcessingEnabled);
 
     /// True if iTunes will process APPCOMMAND Windows messages.
-    set_bool!(AppCommandMessageProcessingEnabled);
+    set_bool!(pub AppCommandMessageProcessingEnabled);
 
     /// True if iTunes will force itself to be the foreground application when it displays a dialog.
-    get_bool!(ForceToForegroundOnDialog);
+    get_bool!(pub ForceToForegroundOnDialog);
 
     /// True if iTunes will force itself to be the foreground application when it displays a dialog.
-    set_bool!(ForceToForegroundOnDialog);
+    set_bool!(pub ForceToForegroundOnDialog);
 
     /// Create a new EQ preset.
     pub fn CreateEQPreset(&self, eqPresetName: BSTR, iEQPreset: *mut Option<IITEQPreset>) -> windows::core::Result<()> {
@@ -1606,13 +1533,13 @@ impl iTunes {
         todo!()
     }
     /// Returns an IITConvertOperationStatus object if there is currently a conversion in progress.
-    get_object!(ConvertOperationStatus, ConvertOperationStatus);
+    get_object!(pub ConvertOperationStatus, ConvertOperationStatus);
 
     /// Subscribe to the specified podcast feed URL.
-    set_bstr!(SubscribeToPodcast, no_set_prefix);
+    set_bstr!(pub SubscribeToPodcast, no_set_prefix);
 
     /// Update all podcast feeds.
-    no_args!(UpdatePodcastFeeds);
+    no_args!(pub UpdatePodcastFeeds);
 
     /// Creates a new folder in the main library.
     pub fn CreateFolder(&self, folderName: BSTR, iFolder: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
@@ -1623,10 +1550,10 @@ impl iTunes {
         todo!()
     }
     /// True if the sound volume control is enabled.
-    get_bool!(SoundVolumeControlEnabled);
+    get_bool!(pub SoundVolumeControlEnabled);
 
     /// The full path to the current iTunes library XML file.
-    get_bstr!(LibraryXMLPath);
+    get_bstr!(pub LibraryXMLPath);
 
     /// Returns the high 32 bits of the persistent ID of the specified IITObject.
     pub unsafe fn ITObjectPersistentIDHigh(&self, iObject: *const VARIANT, highID: *mut LONG) -> windows::core::Result<()> {
@@ -1641,10 +1568,10 @@ impl iTunes {
         todo!()
     }
     /// Returns the player's position within the currently playing track in milliseconds.
-    get_long!(PlayerPositionMS);
+    get_long!(pub PlayerPositionMS);
 
     /// Returns the player's position within the currently playing track in milliseconds.
-    set_long!(PlayerPositionMS);
+    set_long!(pub PlayerPositionMS);
 }
 
 /// IITAudioCDPlaylist Interface
@@ -1656,28 +1583,28 @@ impl IITPlaylistWrapper for AudioCDPlaylist {}
 
 impl AudioCDPlaylist {
     /// The artist of the CD.
-    get_bstr!(Artist);
+    get_bstr!(pub Artist);
 
     /// True if this CD is a compilation album.
-    get_bool!(Compilation);
+    get_bool!(pub Compilation);
 
     /// The composer of the CD.
-    get_bstr!(Composer);
+    get_bstr!(pub Composer);
 
     /// The total number of discs in this CD's album.
-    get_long!(DiscCount);
+    get_long!(pub DiscCount);
 
     /// The index of the CD disc in the source album.
-    get_long!(DiscNumber);
+    get_long!(pub DiscNumber);
 
     /// The genre of the CD.
-    get_bstr!(Genre);
+    get_bstr!(pub Genre);
 
     /// The year the album was recorded/released.
-    get_long!(Year);
+    get_long!(pub Year);
 
     /// Reveal the CD playlist in the main browser window.
-    no_args!(Reveal);
+    no_args!(pub Reveal);
 }
 
 /// IITIPodSource Interface
@@ -1687,13 +1614,13 @@ com_wrapper_struct!(IPodSource);
 
 impl IPodSource {
     /// Update the contents of the iPod.
-    no_args!(UpdateIPod);
+    no_args!(pub UpdateIPod);
 
     /// Eject the iPod.
-    no_args!(EjectIPod);
+    no_args!(pub EjectIPod);
 
     /// The iPod software version.
-    get_bstr!(SoftwareVersion);
+    get_bstr!(pub SoftwareVersion);
 }
 
 /// IITFileOrCDTrack Interface
@@ -1703,184 +1630,184 @@ com_wrapper_struct!(FileOrCDTrack);
 
 impl FileOrCDTrack {
     /// The full path to the file represented by this track.
-    get_bstr!(Location);
+    get_bstr!(pub Location);
 
     /// Update this track's information with the information stored in its file.
-    no_args!(UpdateInfoFromFile);
+    no_args!(pub UpdateInfoFromFile);
 
     /// True if this is a podcast track.
-    get_bool!(Podcast);
+    get_bool!(pub Podcast);
 
     /// Update the podcast feed for this track.
-    no_args!(UpdatePodcastFeed);
+    no_args!(pub UpdatePodcastFeed);
 
     /// True if playback position is remembered.
-    get_bool!(RememberBookmark);
+    get_bool!(pub RememberBookmark);
 
     /// True if playback position is remembered.
-    set_bool!(RememberBookmark);
+    set_bool!(pub RememberBookmark);
 
     /// True if track is skipped when shuffling.
-    get_bool!(ExcludeFromShuffle);
+    get_bool!(pub ExcludeFromShuffle);
 
     /// True if track is skipped when shuffling.
-    set_bool!(ExcludeFromShuffle);
+    set_bool!(pub ExcludeFromShuffle);
 
     /// Lyrics for the track.
-    get_bstr!(Lyrics);
+    get_bstr!(pub Lyrics);
 
     /// Lyrics for the track.
-    set_bstr!(Lyrics);
+    set_bstr!(pub Lyrics);
 
     /// Category for the track.
-    get_bstr!(Category);
+    get_bstr!(pub Category);
 
     /// Category for the track.
-    set_bstr!(Category);
+    set_bstr!(pub Category);
 
     /// Description for the track.
-    get_bstr!(Description);
+    get_bstr!(pub Description);
 
     /// Description for the track.
-    set_bstr!(Description);
+    set_bstr!(pub Description);
 
     /// Long description for the track.
-    get_bstr!(LongDescription);
+    get_bstr!(pub LongDescription);
 
     /// Long description for the track.
-    set_bstr!(LongDescription);
+    set_bstr!(pub LongDescription);
 
     /// The bookmark time of the track (in seconds).
-    get_long!(BookmarkTime);
+    get_long!(pub BookmarkTime);
 
     /// The bookmark time of the track (in seconds).
-    set_long!(BookmarkTime);
+    set_long!(pub BookmarkTime);
 
     /// The video track kind.
-    get_enum!(VideoKind, ITVideoKind);
+    get_enum!(pub VideoKind, ITVideoKind);
 
     /// The video track kind.
-    set_enum!(VideoKind, ITVideoKind);
+    set_enum!(pub VideoKind, ITVideoKind);
 
     /// The number of times the track has been skipped.
-    get_long!(SkippedCount);
+    get_long!(pub SkippedCount);
 
     /// The number of times the track has been skipped.
-    set_long!(SkippedCount);
+    set_long!(pub SkippedCount);
 
     /// The date and time the track was last skipped.  A value of zero means no skipped date.
-    get_date!(SkippedDate);
+    get_date!(pub SkippedDate);
 
     /// The date and time the track was last skipped.  A value of zero means no skipped date.
-    set_date!(SkippedDate);
+    set_date!(pub SkippedDate);
 
     /// True if track is part of a gapless album.
-    get_bool!(PartOfGaplessAlbum);
+    get_bool!(pub PartOfGaplessAlbum);
 
     /// True if track is part of a gapless album.
-    set_bool!(PartOfGaplessAlbum);
+    set_bool!(pub PartOfGaplessAlbum);
 
     /// The album artist of the track.
-    get_bstr!(AlbumArtist);
+    get_bstr!(pub AlbumArtist);
 
     /// The album artist of the track.
-    set_bstr!(AlbumArtist);
+    set_bstr!(pub AlbumArtist);
 
     /// The show name of the track.
-    get_bstr!(Show);
+    get_bstr!(pub Show);
 
     /// The show name of the track.
-    set_bstr!(Show);
+    set_bstr!(pub Show);
 
     /// The season number of the track.
-    get_long!(SeasonNumber);
+    get_long!(pub SeasonNumber);
 
     /// The season number of the track.
-    set_long!(SeasonNumber);
+    set_long!(pub SeasonNumber);
 
     /// The episode ID of the track.
-    get_bstr!(EpisodeID);
+    get_bstr!(pub EpisodeID);
 
     /// The episode ID of the track.
-    set_bstr!(EpisodeID);
+    set_bstr!(pub EpisodeID);
 
     /// The episode number of the track.
-    get_long!(EpisodeNumber);
+    get_long!(pub EpisodeNumber);
 
     /// The episode number of the track.
-    set_long!(EpisodeNumber);
+    set_long!(pub EpisodeNumber);
 
     /// The high 32-bits of the size of the track (in bytes).
-    get_long!(Size64High);
+    get_long!(pub Size64High);
 
     /// The low 32-bits of the size of the track (in bytes).
-    get_long!(Size64Low);
+    get_long!(pub Size64Low);
 
     /// True if track has not been played.
-    get_bool!(Unplayed);
+    get_bool!(pub Unplayed);
 
     /// True if track has not been played.
-    set_bool!(Unplayed);
+    set_bool!(pub Unplayed);
 
     /// The album used for sorting.
-    get_bstr!(SortAlbum);
+    get_bstr!(pub SortAlbum);
 
     /// The album used for sorting.
-    set_bstr!(SortAlbum);
+    set_bstr!(pub SortAlbum);
 
     /// The album artist used for sorting.
-    get_bstr!(SortAlbumArtist);
+    get_bstr!(pub SortAlbumArtist);
 
     /// The album artist used for sorting.
-    set_bstr!(SortAlbumArtist);
+    set_bstr!(pub SortAlbumArtist);
 
     /// The artist used for sorting.
-    get_bstr!(SortArtist);
+    get_bstr!(pub SortArtist);
 
     /// The artist used for sorting.
-    set_bstr!(SortArtist);
+    set_bstr!(pub SortArtist);
 
     /// The composer used for sorting.
-    get_bstr!(SortComposer);
+    get_bstr!(pub SortComposer);
 
     /// The composer used for sorting.
-    set_bstr!(SortComposer);
+    set_bstr!(pub SortComposer);
 
     /// The track name used for sorting.
-    get_bstr!(SortName);
+    get_bstr!(pub SortName);
 
     /// The track name used for sorting.
-    set_bstr!(SortName);
+    set_bstr!(pub SortName);
 
     /// The show name used for sorting.
-    get_bstr!(SortShow);
+    get_bstr!(pub SortShow);
 
     /// The show name used for sorting.
-    set_bstr!(SortShow);
+    set_bstr!(pub SortShow);
 
     /// Reveal the track in the main browser window.
-    no_args!(Reveal);
+    no_args!(pub Reveal);
 
     /// The user or computed rating of the album that this track belongs to (0 to 100).
-    get_long!(AlbumRating);
+    get_long!(pub AlbumRating);
 
     /// The user or computed rating of the album that this track belongs to (0 to 100).
-    set_long!(AlbumRating);
+    set_long!(pub AlbumRating);
 
     /// The album rating kind.
-    get_enum!(AlbumRatingKind, ITRatingKind);
+    get_enum!(pub AlbumRatingKind, ITRatingKind);
 
     /// The track rating kind.
-    get_enum!(ratingKind, ITRatingKind);
+    get_enum!(pub ratingKind, ITRatingKind);
 
     /// Returns a collection of playlists that contain the song that this track represents.
-    get_object!(Playlists, PlaylistCollection);
+    get_object!(pub Playlists, PlaylistCollection);
 
     /// The full path to the file represented by this track.
-    set_bstr!(Location);
+    set_bstr!(pub Location);
 
     /// The release date of the track.  A value of zero means no release date.
-    get_date!(ReleaseDate);
+    get_date!(pub ReleaseDate);
 }
 
 /// IITPlaylistWindow Interface
@@ -1890,8 +1817,8 @@ com_wrapper_struct!(PlaylistWindow);
 
 impl PlaylistWindow {
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(SelectedTracks, TrackCollection);
+    get_object!(pub SelectedTracks, TrackCollection);
 
     /// The playlist displayed in the window.
-    get_object!(Playlist, Playlist);
+    get_object!(pub Playlist, Playlist);
 }
