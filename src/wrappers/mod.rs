@@ -144,23 +144,33 @@ macro_rules! get_long {
     };
 }
 
+
+macro_rules! internal_set_long {
+    ($vis:vis $func_name:ident as $inherited_type:ty, key = $key:ident) => {
+        $vis fn $func_name(&self, $key: LONG) -> windows::core::Result<()> {
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name($key) };
+            result.ok()
+        }
+    };
+}
+
 macro_rules! set_long {
     ($vis:vis $key:ident) => {
         ::paste::paste! {
-            $vis fn [<set _$key>](&self, $key: LONG) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set _$key>]($key) };
-                result.ok()
-            }
+            set_long!($vis $key as <Self as ComObjectWrapper>::WrappedType);
+        }
+    };
+    ($vis:vis $key:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            internal_set_long!($vis [<set_ $key>] as $inherited_type, key = $key);
         }
     };
     ($vis:vis $key:ident, no_set_prefix) => {
         ::paste::paste! {
-            $vis fn [<set _$key>](&self, $key: LONG) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.$key($key) };
-                result.ok()
-            }
+            internal_set_long!($vis $key as <Self as ComObjectWrapper>::WrappedType, key = $key);
         }
-    }
+    };
 }
 
 macro_rules! get_f64 {
@@ -181,9 +191,13 @@ macro_rules! get_f64 {
 
 macro_rules! set_f64 {
     ($vis:vis $key:ident, $float_name:ty) => {
+        set_f64!($vis $key, $float_name as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $key:ident, $float_name:ty as $inherited_type:ty) => {
         ::paste::paste! {
             $vis fn [<set _$key>](&self, $key: $float_name) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set _$key>]($key) };
+                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+                let result = unsafe{ inherited_obj.[<set _$key>]($key) };
                 result.ok()
             }
         }
@@ -208,13 +222,19 @@ macro_rules! set_double {
 macro_rules! get_date {
     ($vis:vis $key:ident) => {
         get_f64!($vis $key, DATE);
-    }
+    };
+    ($vis:vis $key:ident as $inherited_type:ty) => {
+        get_f64!($vis $key, DATE as $inherited_type);
+    };
 }
 
 macro_rules! set_date {
     ($vis:vis $key:ident) => {
         set_f64!($vis $key, DATE);
-    }
+    };
+    ($vis:vis $key:ident as $inherited_type:ty) => {
+        set_f64!($vis $key, DATE as $inherited_type);
+    };
 }
 
 macro_rules! get_bool {
@@ -290,8 +310,7 @@ macro_rules! set_enum {
             $vis fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
                 let inherited_obj = self.com_object().cast::<$inherited_type>()?;
                 let result = unsafe{ inherited_obj.[<set _$fn_name>](value) };
-                result.ok()?;
-                Ok(())
+                result.ok()
             }
         }
     };
@@ -600,6 +619,181 @@ impl TrackCollection {
 
 iterator!(TrackCollection, Track);
 
+/// Several COM objects inherit from this class, which provides some extra methods
+pub trait IITTrackWrapper: private::ComObjectWrapper {
+    /// Delete this track.
+    no_args!(Delete as IITTrack);
+
+    /// Start playing this track.
+    no_args!(Play as IITTrack);
+
+    /// Add artwork from an image file to this track.
+    fn AddArtworkFromFile(&self, filePath: BSTR, iArtwork: *mut Option<IITArtwork>) -> windows::core::Result<()> {
+        todo!()
+    }
+    /// The track kind.
+    get_enum!(Kind, ITTrackKind as IITTrack);
+
+    /// The playlist that contains this track.
+    get_object!(Playlist, Playlist as IITTrack);
+
+    /// The album containing the track.
+    get_bstr!(Album as IITTrack);
+
+    /// The album containing the track.
+    set_bstr!(Album as IITTrack);
+
+    /// The artist/source of the track.
+    get_bstr!(Artist as IITTrack);
+
+    /// The artist/source of the track.
+    set_bstr!(Artist as IITTrack);
+
+    /// The bit rate of the track (in kbps).
+    get_long!(BitRate as IITTrack);
+
+    /// The tempo of the track (in beats per minute).
+    get_long!(BPM as IITTrack);
+
+    /// The tempo of the track (in beats per minute).
+    set_long!(BPM as IITTrack);
+
+    /// Freeform notes about the track.
+    get_bstr!(Comment as IITTrack);
+
+    /// Freeform notes about the track.
+    set_bstr!(Comment as IITTrack);
+
+    /// True if this track is from a compilation album.
+    get_bool!(Compilation as IITTrack);
+
+    /// True if this track is from a compilation album.
+    set_bool!(Compilation as IITTrack);
+
+    /// The composer of the track.
+    get_bstr!(Composer as IITTrack);
+
+    /// The composer of the track.
+    set_bstr!(Composer as IITTrack);
+
+    /// The date the track was added to the playlist.
+    get_date!(DateAdded as IITTrack);
+
+    /// The total number of discs in the source album.
+    get_long!(DiscCount as IITTrack);
+
+    /// The total number of discs in the source album.
+    set_long!(DiscCount as IITTrack);
+
+    /// The index of the disc containing the track on the source album.
+    get_long!(DiscNumber as IITTrack);
+
+    /// The index of the disc containing the track on the source album.
+    set_long!(DiscNumber as IITTrack);
+
+    /// The length of the track (in seconds).
+    get_long!(Duration as IITTrack);
+
+    /// True if the track is checked for playback.
+    get_bool!(Enabled as IITTrack);
+
+    /// True if the track is checked for playback.
+    set_bool!(Enabled as IITTrack);
+
+    /// The name of the EQ preset of the track.
+    get_bstr!(EQ as IITTrack);
+
+    /// The name of the EQ preset of the track.
+    set_bstr!(EQ as IITTrack);
+
+    /// The stop time of the track (in seconds).
+    set_long!(Finish as IITTrack);
+
+    /// The stop time of the track (in seconds).
+    get_long!(Finish as IITTrack);
+
+    /// The music/audio genre (category) of the track.
+    get_bstr!(Genre as IITTrack);
+
+    /// The music/audio genre (category) of the track.
+    set_bstr!(Genre as IITTrack);
+
+    /// The grouping (piece) of the track.  Generally used to denote movements within classical work.
+    get_bstr!(Grouping as IITTrack);
+
+    /// The grouping (piece) of the track.  Generally used to denote movements within classical work.
+    set_bstr!(Grouping as IITTrack);
+
+    /// A text description of the track.
+    get_bstr!(KindAsString as IITTrack);
+
+    /// The modification date of the content of the track.
+    get_date!(ModificationDate as IITTrack);
+
+    /// The number of times the track has been played.
+    get_long!(PlayedCount as IITTrack);
+
+    /// The number of times the track has been played.
+    set_long!(PlayedCount as IITTrack);
+
+    /// The date and time the track was last played.  A value of zero means no played date.
+    get_date!(PlayedDate as IITTrack);
+
+    /// The date and time the track was last played.  A value of zero means no played date.
+    set_date!(PlayedDate as IITTrack);
+
+    /// The play order index of the track in the owner playlist (1-based).
+    get_long!(PlayOrderIndex as IITTrack);
+
+    /// The rating of the track (0 to 100).
+    get_long!(Rating as IITTrack);
+
+    /// The rating of the track (0 to 100).
+    set_long!(Rating as IITTrack);
+
+    /// The sample rate of the track (in Hz).
+    get_long!(SampleRate as IITTrack);
+
+    /// The size of the track (in bytes).
+    get_long!(Size as IITTrack);
+
+    /// The start time of the track (in seconds).
+    get_long!(Start as IITTrack);
+
+    /// The start time of the track (in seconds).
+    set_long!(Start as IITTrack);
+
+    /// The length of the track (in MM:SS format).
+    get_bstr!(Time as IITTrack);
+
+    /// The total number of tracks on the source album.
+    get_long!(TrackCount as IITTrack);
+
+    /// The total number of tracks on the source album.
+    set_long!(TrackCount as IITTrack);
+
+    /// The index of the track on the source album.
+    get_long!(TrackNumber as IITTrack);
+
+    /// The index of the track on the source album.
+    set_long!(TrackNumber as IITTrack);
+
+    /// The relative volume adjustment of the track (-100% to 100%).
+    get_long!(VolumeAdjustment as IITTrack);
+
+    /// The relative volume adjustment of the track (-100% to 100%).
+    set_long!(VolumeAdjustment as IITTrack);
+
+    /// The year the track was recorded/released.
+    get_long!(Year as IITTrack);
+
+    /// The year the track was recorded/released.
+    set_long!(Year as IITTrack);
+
+    /// Returns a collection of artwork.
+    get_object!(Artwork, ArtworkCollection as IITTrack);
+}
+
 /// IITTrack Interface
 ///
 /// See the generated [`IITTrack_Impl`] trait for more documentation about each function.
@@ -607,179 +801,7 @@ com_wrapper_struct!(Track);
 
 impl IITObjectWrapper for Track {}
 
-impl Track {
-    /// Delete this track.
-    no_args!(pub Delete);
-
-    /// Start playing this track.
-    no_args!(pub Play);
-
-    /// Add artwork from an image file to this track.
-    pub fn AddArtworkFromFile(&self, filePath: BSTR, iArtwork: *mut Option<IITArtwork>) -> windows::core::Result<()> {
-        todo!()
-    }
-    /// The track kind.
-    get_enum!(pub Kind, ITTrackKind);
-
-    /// The playlist that contains this track.
-    get_object!(pub Playlist, Playlist);
-
-    /// The album containing the track.
-    get_bstr!(pub Album);
-
-    /// The album containing the track.
-    set_bstr!(pub Album);
-
-    /// The artist/source of the track.
-    get_bstr!(pub Artist);
-
-    /// The artist/source of the track.
-    set_bstr!(pub Artist);
-
-    /// The bit rate of the track (in kbps).
-    get_long!(pub BitRate);
-
-    /// The tempo of the track (in beats per minute).
-    get_long!(pub BPM);
-
-    /// The tempo of the track (in beats per minute).
-    set_long!(pub BPM);
-
-    /// Freeform notes about the track.
-    get_bstr!(pub Comment);
-
-    /// Freeform notes about the track.
-    set_bstr!(pub Comment);
-
-    /// True if this track is from a compilation album.
-    get_bool!(pub Compilation);
-
-    /// True if this track is from a compilation album.
-    set_bool!(pub Compilation);
-
-    /// The composer of the track.
-    get_bstr!(pub Composer);
-
-    /// The composer of the track.
-    set_bstr!(pub Composer);
-
-    /// The date the track was added to the playlist.
-    get_date!(pub DateAdded);
-
-    /// The total number of discs in the source album.
-    get_long!(pub DiscCount);
-
-    /// The total number of discs in the source album.
-    set_long!(pub DiscCount);
-
-    /// The index of the disc containing the track on the source album.
-    get_long!(pub DiscNumber);
-
-    /// The index of the disc containing the track on the source album.
-    set_long!(pub DiscNumber);
-
-    /// The length of the track (in seconds).
-    get_long!(pub Duration);
-
-    /// True if the track is checked for playback.
-    get_bool!(pub Enabled);
-
-    /// True if the track is checked for playback.
-    set_bool!(pub Enabled);
-
-    /// The name of the EQ preset of the track.
-    get_bstr!(pub EQ);
-
-    /// The name of the EQ preset of the track.
-    set_bstr!(pub EQ);
-
-    /// The stop time of the track (in seconds).
-    set_long!(pub Finish);
-
-    /// The stop time of the track (in seconds).
-    get_long!(pub Finish);
-
-    /// The music/audio genre (category) of the track.
-    get_bstr!(pub Genre);
-
-    /// The music/audio genre (category) of the track.
-    set_bstr!(pub Genre);
-
-    /// The grouping (piece) of the track.  Generally used to denote movements within classical work.
-    get_bstr!(pub Grouping);
-
-    /// The grouping (piece) of the track.  Generally used to denote movements within classical work.
-    set_bstr!(pub Grouping);
-
-    /// A text description of the track.
-    get_bstr!(pub KindAsString);
-
-    /// The modification date of the content of the track.
-    get_date!(pub ModificationDate);
-
-    /// The number of times the track has been played.
-    get_long!(pub PlayedCount);
-
-    /// The number of times the track has been played.
-    set_long!(pub PlayedCount);
-
-    /// The date and time the track was last played.  A value of zero means no played date.
-    get_date!(pub PlayedDate);
-
-    /// The date and time the track was last played.  A value of zero means no played date.
-    set_date!(pub PlayedDate);
-
-    /// The play order index of the track in the owner playlist (1-based).
-    get_long!(pub PlayOrderIndex);
-
-    /// The rating of the track (0 to 100).
-    get_long!(pub Rating);
-
-    /// The rating of the track (0 to 100).
-    set_long!(pub Rating);
-
-    /// The sample rate of the track (in Hz).
-    get_long!(pub SampleRate);
-
-    /// The size of the track (in bytes).
-    get_long!(pub Size);
-
-    /// The start time of the track (in seconds).
-    get_long!(pub Start);
-
-    /// The start time of the track (in seconds).
-    set_long!(pub Start);
-
-    /// The length of the track (in MM:SS format).
-    get_bstr!(pub Time);
-
-    /// The total number of tracks on the source album.
-    get_long!(pub TrackCount);
-
-    /// The total number of tracks on the source album.
-    set_long!(pub TrackCount);
-
-    /// The index of the track on the source album.
-    get_long!(pub TrackNumber);
-
-    /// The index of the track on the source album.
-    set_long!(pub TrackNumber);
-
-    /// The relative volume adjustment of the track (-100% to 100%).
-    get_long!(pub VolumeAdjustment);
-
-    /// The relative volume adjustment of the track (-100% to 100%).
-    set_long!(pub VolumeAdjustment);
-
-    /// The year the track was recorded/released.
-    get_long!(pub Year);
-
-    /// The year the track was recorded/released.
-    set_long!(pub Year);
-
-    /// Returns a collection of artwork.
-    get_object!(pub Artwork, ArtworkCollection);
-}
+impl IITTrackWrapper for Track {}
 
 /// IITArtwork Interface
 ///
@@ -1023,6 +1045,8 @@ impl LibraryPlaylist {
 ///
 /// See the generated [`IITURLTrack_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(URLTrack);
+
+impl IITTrackWrapper for URLTrack {}
 
 impl URLTrack {
     /// The URL of the stream represented by this track.
@@ -1627,6 +1651,8 @@ impl IPodSource {
 ///
 /// See the generated [`IITFileOrCDTrack_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(FileOrCDTrack);
+
+impl IITTrackWrapper for FileOrCDTrack {}
 
 impl FileOrCDTrack {
     /// The full path to the file represented by this track.
