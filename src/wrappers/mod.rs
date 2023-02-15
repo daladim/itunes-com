@@ -416,12 +416,38 @@ macro_rules! iitobject_set_bstr {
 }
 
 
+/// The four IDs that uniquely identify an object
+#[derive(Debug, Eq, PartialEq)]
+pub struct ObjectIDs {
+    pub sourceID: LONG,
+    pub playlistID: LONG,
+    pub trackID: LONG,
+    pub databaseID: LONG,
+}
 
 /// Many COM objects inherit from this class, which provides some extra methods
 pub trait IITObjectWrapper: private::ComObjectWrapper {
     /// Returns the four IDs that uniquely identify this object.
-    unsafe fn GetITObjectIDs(&self, sourceID: *mut LONG, playlistID: *mut LONG, trackID: *mut LONG, databaseID: *mut LONG) -> windows::core::Result<()> {
-        todo!()
+    fn GetITObjectIDs(&self) -> windows::core::Result<ObjectIDs> {
+        let mut sourceID: LONG = 0;
+        let mut playlistID: LONG = 0;
+        let mut trackID: LONG = 0;
+        let mut databaseID: LONG = 0;
+        let iitobject = self.com_object().cast::<IITObject>().unwrap();
+        let result = unsafe{ iitobject.GetITObjectIDs(
+            &mut sourceID as *mut LONG,
+            &mut playlistID as *mut LONG,
+            &mut trackID as *mut LONG,
+            &mut databaseID as *mut LONG,
+        ) };
+        result.ok()?;
+
+        Ok(ObjectIDs{
+            sourceID,
+            playlistID,
+            trackID,
+            databaseID,
+        })
     }
 
     /// The name of the object.
