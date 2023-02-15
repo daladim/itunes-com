@@ -76,7 +76,14 @@ macro_rules! no_args {
             let result: HRESULT = unsafe{ self.com_object.$func_name() };
             result.ok()
         }
-    }
+    };
+    (not_pub $func_name:ident as $inherited_type:ty) => {
+        fn $func_name(&self) -> windows::core::Result<()> {
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result: HRESULT = unsafe{ inherited_obj.$func_name() };
+            result.ok()
+        }
+    };
 }
 
 macro_rules! get_bstr {
@@ -84,6 +91,17 @@ macro_rules! get_bstr {
         pub fn $func_name(&self) -> windows::core::Result<String> {
             let mut bstr = BSTR::default();
             let result = unsafe{ self.com_object.$func_name(&mut bstr) };
+            result.ok()?;
+
+            let v: Vec<u16> = bstr.as_wide().to_vec();
+            Ok(U16CString::from_vec_truncate(v).to_string_lossy())
+        }
+    };
+    (not_pub $func_name:ident as $inherited_type:ty) => {
+        fn $func_name(&self) -> windows::core::Result<String> {
+            let mut bstr = BSTR::default();
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name(&mut bstr) };
             result.ok()?;
 
             let v: Vec<u16> = bstr.as_wide().to_vec();
@@ -108,7 +126,18 @@ macro_rules! set_bstr {
             let result = unsafe{ self.com_object.$key(bstr) };
             result.ok()
         }
-    }
+    };
+    (not_pub $key:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            fn [<set _$key>](&self, $key: String) -> windows::core::Result<()> {
+                str_to_bstr!($key, bstr);
+                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+                let result = unsafe{ inherited_obj.[<set _$key>](bstr) };
+                result.ok()?;
+                Ok(())
+            }
+        }
+    };
 }
 
 macro_rules! get_long_with_vis {
@@ -116,6 +145,16 @@ macro_rules! get_long_with_vis {
         $vis fn $func_name(&self) -> windows::core::Result<LONG> {
             let mut value: LONG = 0;
             let result = unsafe{ self.com_object.$func_name(&mut value as *mut LONG) };
+            result.ok()?;
+
+            Ok(value)
+        }
+    };
+    ($vis:vis $func_name:ident as $inherited_type:ty) => {
+        $vis fn $func_name(&self) -> windows::core::Result<LONG> {
+            let mut value: LONG = 0;
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name(&mut value as *mut LONG) };
             result.ok()?;
 
             Ok(value)
@@ -129,7 +168,10 @@ macro_rules! get_long {
     };
     (not_pub $func_name:ident) => {
         get_long_with_vis!($func_name);
-    }
+    };
+    (not_pub $func_name:ident as $inherited_type:ty) => {
+        get_long_with_vis!($func_name as $inherited_type);
+    };
 }
 
 macro_rules! set_long {
@@ -160,7 +202,17 @@ macro_rules! get_f64 {
 
             Ok(value)
         }
-    }
+    };
+    (not_pub $func_name:ident, $float_name:ty as $inherited_type:ty) => {
+        fn $func_name(&self) -> windows::core::Result<$float_name> {
+            let mut value: f64 = 0.0;
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name(&mut value) };
+            result.ok()?;
+
+            Ok(value)
+        }
+    };
 }
 
 macro_rules! set_f64 {
@@ -177,6 +229,9 @@ macro_rules! set_f64 {
 macro_rules! get_double {
     ($key:ident) => {
         get_f64!($key, f64);
+    };
+    (not_pub $key:ident as $inherited_type:ty) => {
+        get_f64!(not_pub $key, f64 as $inherited_type);
     }
 }
 
@@ -209,7 +264,19 @@ macro_rules! get_bool {
                 Ok(value.as_bool())
             }
         }
-    }
+    };
+    (not_pub $func_name:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            fn [<is _$func_name>](&self) -> windows::core::Result<bool> {
+                let mut value = crate::com::FALSE;
+                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+                let result = unsafe{ inherited_obj.$func_name(&mut value) };
+                result.ok()?;
+
+                Ok(value.as_bool())
+            }
+        }
+    };
 }
 
 macro_rules! set_bool {
@@ -237,6 +304,20 @@ macro_rules! set_bool {
             }
         }
     };
+    (not_pub $key:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            fn [<set _$key>](&self, $key: bool) -> windows::core::Result<()> {
+                let variant_bool = match $key {
+                    true => crate::com::TRUE,
+                    false => crate::com::FALSE,
+                };
+                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+                let result = unsafe{ inherited_obj.[<set _$key>](variant_bool) };
+                result.ok()?;
+                Ok(())
+            }
+        }
+    };
 }
 
 
@@ -248,7 +329,16 @@ macro_rules! get_enum {
             result.ok()?;
             Ok(value)
         }
-    }
+    };
+    (not_pub $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
+        fn $fn_name(&self) -> windows::core::Result<$enum_type> {
+            let mut value: $enum_type = FromPrimitive::from_i32(0).unwrap();
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$fn_name(&mut value as *mut _) };
+            result.ok()?;
+            Ok(value)
+        }
+    };
 }
 
 macro_rules! set_enum {
@@ -259,7 +349,17 @@ macro_rules! set_enum {
                 result.ok()
             }
         }
-    }
+    };
+    (not_pub $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
+        ::paste::paste! {
+            fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
+                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+                let result = unsafe{ inherited_obj.[<set _$fn_name>](value) };
+                result.ok()?;
+                Ok(())
+            }
+        }
+    };
 }
 
 macro_rules! create_wrapped_object {
@@ -285,7 +385,17 @@ macro_rules! get_object {
 
             create_wrapped_object!($obj_type, out_obj)
         }
-    }
+    };
+    (not_pub $fn_name:ident, $obj_type:ident as $inherited_type:ty) => {
+        fn $fn_name(&self) -> windows::core::Result<$obj_type> {
+            let mut out_obj = None;
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$fn_name(&mut out_obj as *mut _) };
+            result.ok()?;
+
+            create_wrapped_object!($obj_type, out_obj)
+        }
+    };
 }
 
 macro_rules! set_object {
@@ -373,47 +483,6 @@ macro_rules! iterator {
     }
 }
 
-macro_rules! iitobject_get_bstr {
-    ($func_name:ident) => {
-        fn $func_name(&self) -> windows::core::Result<String> {
-            let mut bstr = BSTR::default();
-            let iitobject = self.com_object().cast::<IITObject>().unwrap();
-            let result = unsafe{ iitobject.$func_name(&mut bstr) };
-            result.ok()?;
-
-            let v: Vec<u16> = bstr.as_wide().to_vec();
-            Ok(U16CString::from_vec_truncate(v).to_string_lossy())
-        }
-    }
-}
-
-macro_rules! iitobject_get_long {
-    ($func_name:ident) => {
-        fn $func_name(&self) -> windows::core::Result<LONG> {
-            let mut value: LONG = 0;
-            let iitobject = self.com_object().cast::<IITObject>().unwrap();
-            let result = unsafe{ iitobject.$func_name(&mut value as *mut LONG) };
-            result.ok()?;
-
-            Ok(value)
-        }
-    };
-}
-
-macro_rules! iitobject_set_bstr {
-    ($key:ident) => {
-        ::paste::paste! {
-            fn [<set _$key>](&self, $key: String) -> windows::core::Result<()> {
-                let wide = U16CString::from_str_truncate($key);
-                let bstr = BSTR::from_wide(wide.as_slice())?;
-                let iitobject = self.com_object().cast::<IITObject>().unwrap();
-                let result = unsafe{ iitobject.[<set _$key>](bstr) };
-                result.ok()?;
-                Ok(())
-            }
-        }
-    };
-}
 
 
 /// The four IDs that uniquely identify an object
@@ -451,25 +520,25 @@ pub trait IITObjectWrapper: private::ComObjectWrapper {
     }
 
     /// The name of the object.
-    iitobject_get_bstr!(Name);
+    get_bstr!(not_pub Name as IITObject);
 
     /// The name of the object.
-    iitobject_set_bstr!(Name);
+    set_bstr!(not_pub Name as IITObject);
 
     /// The index of the object in internal application order (1-based).
-    iitobject_get_long!(Index);
+    get_long!(not_pub Index as IITObject);
 
     /// The source ID of the object.
-    iitobject_get_long!(sourceID);
+    get_long!(not_pub sourceID as IITObject);
 
     /// The playlist ID of the object.
-    iitobject_get_long!(playlistID);
+    get_long!(not_pub playlistID as IITObject);
 
     /// The track ID of the object.
-    iitobject_get_long!(trackID);
+    get_long!(not_pub trackID as IITObject);
 
     /// The track database ID of the object.
-    iitobject_get_long!(TrackDatabaseID);
+    get_long!(not_pub TrackDatabaseID as IITObject);
 }
 
 /// IITSource Interface
@@ -508,6 +577,71 @@ impl PlaylistCollection {
 
 iterator!(PlaylistCollection, Playlist);
 
+
+/// Several COM objects inherit from this class, which provides some extra methods
+pub trait IITPlaylistWrapper: private::ComObjectWrapper {
+    /// Delete this playlist.
+    no_args!(not_pub Delete as IITPlaylist);
+
+    /// Start playing the first track in this playlist.
+    no_args!(not_pub PlayFirstTrack as IITPlaylist);
+
+    /// Print this playlist.
+    fn Print(&self, showPrintDialog: bool, printKind: ITPlaylistPrintKind, theme: String) -> windows::core::Result<()> {
+        let show = if showPrintDialog { TRUE } else { FALSE };
+        str_to_bstr!(theme, theme);
+
+        let inherited_obj = self.com_object().cast::<IITPlaylist>()?;
+        let result = unsafe{ inherited_obj.Print(show, printKind, theme) };
+        result.ok()
+    }
+
+    /// Search tracks in this playlist for the specified string.
+    fn Search(&self, searchText: String, searchFields: ITPlaylistSearchField) -> windows::core::Result<TrackCollection> {
+        str_to_bstr!(searchText, searchText);
+
+        let mut out_obj = None;
+        let inherited_obj = self.com_object().cast::<IITPlaylist>()?;
+        let result = unsafe{ inherited_obj.Search(searchText, searchFields, &mut out_obj as *mut _) };
+        result.ok()?;
+
+        create_wrapped_object!(TrackCollection, out_obj)
+    }
+
+    /// The playlist kind.
+    get_enum!(not_pub Kind, ITPlaylistKind as IITPlaylist);
+
+    /// The source that contains this playlist.
+    get_object!(not_pub Source, Source as IITPlaylist);
+
+    /// The total length of all songs in the playlist (in seconds).
+    get_long!(not_pub Duration as IITPlaylist);
+
+    /// True if songs in the playlist are played in random order.
+    get_bool!(not_pub Shuffle as IITPlaylist);
+
+    /// True if songs in the playlist are played in random order.
+    set_bool!(not_pub Shuffle as IITPlaylist);
+
+    /// The total size of all songs in the playlist (in bytes).
+    get_double!(not_pub Size as IITPlaylist);
+
+    /// The playback repeat mode.
+    get_enum!(not_pub SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
+
+    /// The playback repeat mode.
+    set_enum!(not_pub SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
+
+    /// The total length of all songs in the playlist (in MM:SS format).
+    get_bstr!(not_pub Time as IITPlaylist);
+
+    /// True if the playlist is visible in the Source list.
+    get_bool!(not_pub Visible as IITPlaylist);
+
+    /// Returns a collection of tracks in this playlist.
+    get_object!(not_pub Tracks, TrackCollection as IITPlaylist);
+}
+
 /// IITPlaylist Interface
 ///
 /// See the generated [`IITPlaylist_Impl`] trait for more documentation about each function.
@@ -515,54 +649,8 @@ com_wrapper_struct!(Playlist);
 
 impl IITObjectWrapper for Playlist {}
 
-impl Playlist {
-    /// Delete this playlist.
-    no_args!(Delete);
+impl IITPlaylistWrapper for Playlist {}
 
-    /// Start playing the first track in this playlist.
-    no_args!(PlayFirstTrack);
-
-    /// Print this playlist.
-    pub fn Print(&self, showPrintDialog: VARIANT_BOOL, printKind: ITPlaylistPrintKind, theme: BSTR) -> windows::core::Result<()> {
-        todo!()
-    }
-    /// Search tracks in this playlist for the specified string.
-    pub fn Search(&self, searchText: BSTR, searchFields: ITPlaylistSearchField, iTrackCollection: *mut Option<IITTrackCollection>) -> windows::core::Result<()> {
-        todo!()
-    }
-    /// The playlist kind.
-    get_enum!(Kind, ITPlaylistKind);
-
-    /// The source that contains this playlist.
-    get_object!(Source, Source);
-
-    /// The total length of all songs in the playlist (in seconds).
-    get_long!(Duration);
-
-    /// True if songs in the playlist are played in random order.
-    get_bool!(Shuffle);
-
-    /// True if songs in the playlist are played in random order.
-    set_bool!(Shuffle);
-
-    /// The total size of all songs in the playlist (in bytes).
-    get_double!(Size);
-
-    /// The playback repeat mode.
-    get_enum!(SongRepeat, ITPlaylistRepeatMode);
-
-    /// The playback repeat mode.
-    set_enum!(SongRepeat, ITPlaylistRepeatMode);
-
-    /// The total length of all songs in the playlist (in MM:SS format).
-    get_bstr!(Time);
-
-    /// True if the playlist is visible in the Source list.
-    get_bool!(Visible);
-
-    /// Returns a collection of tracks in this playlist.
-    get_object!(Tracks, TrackCollection);
-}
 
 /// IITTrackCollection Interface
 ///
@@ -981,6 +1069,8 @@ impl ConvertOperationStatus {
 /// See the generated [`IITLibraryPlaylist_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(LibraryPlaylist);
 
+impl IITPlaylistWrapper for LibraryPlaylist {}
+
 impl LibraryPlaylist {
     /// Add the specified file path to the library.
     pub fn AddFile(&self, filePath: BSTR, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
@@ -1062,6 +1152,8 @@ impl URLTrack {
 ///
 /// See the generated [`IITUserPlaylist_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(UserPlaylist);
+
+impl IITPlaylistWrapper for UserPlaylist {}
 
 impl UserPlaylist {
     /// Add the specified file path to the user playlist.
@@ -1559,6 +1651,8 @@ impl iTunes {
 ///
 /// See the generated [`IITAudioCDPlaylist_Impl`] trait for more documentation about each function.
 com_wrapper_struct!(AudioCDPlaylist);
+
+impl IITPlaylistWrapper for AudioCDPlaylist {}
 
 impl AudioCDPlaylist {
     /// The artist of the CD.
