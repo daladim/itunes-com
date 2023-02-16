@@ -1863,11 +1863,18 @@ impl FileOrCDTrack {
     /// The episode number of the track.
     set_long!(pub EpisodeNumber);
 
-    /// The high 32-bits of the size of the track (in bytes).
-    get_long!(pub Size64High);
+    /// The size of the track (in bytes)
+    pub fn Size(&self) -> windows::core::Result<i64> {
+        let mut highSize = 0;
+        let mut lowSize = 0;
+        let result = unsafe{ self.com_object.Size64High(&mut highSize) };
+        result.ok()?;
+        let result = unsafe{ self.com_object.Size64Low(&mut lowSize) };
+        result.ok()?;
 
-    /// The low 32-bits of the size of the track (in bytes).
-    get_long!(pub Size64Low);
+        let bytes = [highSize.to_le_bytes(), lowSize.to_le_bytes()].concat();
+        Ok(i64::from_le_bytes(bytes.try_into().unwrap())) // cannot panic, the slice has the correct size
+    }
 
     /// True if track has not been played.
     get_bool!(pub Unplayed);
