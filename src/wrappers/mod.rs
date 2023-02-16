@@ -364,6 +364,23 @@ macro_rules! get_object_from_str {
     };
 }
 
+macro_rules! get_object_from_variant {
+    ($vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty) => {
+        get_object_from_variant!($vis $fn_name($arg_name) -> $obj_type as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty as $inherited_type:ty) => {
+        $vis fn $fn_name(&self, $arg_name:&VARIANT) -> windows::core::Result<$obj_type> {
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+
+            let mut out_obj = None;
+            let result = unsafe{ inherited_obj.$fn_name($arg_name as *const VARIANT, &mut out_obj as *mut _) };
+            result.ok()?;
+
+            create_wrapped_object!($obj_type, out_obj)
+        }
+    };
+}
+
 macro_rules! set_object {
     ($vis:vis $fn_name:ident, $obj_type:ty) => {
         ::paste::paste! {
@@ -1044,16 +1061,13 @@ impl LibraryPlaylist {
     get_object_from_str!(pub AddFile(filePath) -> OperationStatus);
 
     /// Add the specified array of file paths to the library. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
-    pub fn AddFiles(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub AddFiles(filePaths) -> OperationStatus);
+
     /// Add the specified streaming audio URL to the library.
     get_object_from_str!(pub AddURL(URL) -> URLTrack);
 
     /// Add the specified track to the library.  iTrackToAdd is a VARIANT of type VT_DISPATCH that points to an IITTrack.
-    pub fn AddTrack(&self, iTrackToAdd: *const VARIANT, iAddedTrack: *mut Option<IITTrack>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub AddTrack(iTrackToAdd) -> Track);
 }
 
 /// IITURLTrack Interface
@@ -1128,16 +1142,14 @@ impl UserPlaylist {
     get_object_from_str!(pub AddFile(filePath) -> OperationStatus);
 
     /// Add the specified array of file paths to the user playlist. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
-    pub fn AddFiles(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub AddFiles(filePaths) -> OperationStatus);
+
     /// Add the specified streaming audio URL to the user playlist.
     get_object_from_str!(pub AddURL(URL) -> URLTrack);
 
     /// Add the specified track to the user playlist.  iTrackToAdd is a VARIANT of type VT_DISPATCH that points to an IITTrack.
-    pub fn AddTrack(&self, iTrackToAdd: *const VARIANT, iAddedTrack: *mut Option<IITTrack>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub AddTrack(iTrackToAdd) -> Track);
+
     /// True if the user playlist is being shared.
     get_bool!(pub Shared);
 
@@ -1361,17 +1373,14 @@ impl iTunes {
     get_object_from_str!(pub ConvertFile(filePath) -> OperationStatus);
 
     /// Start converting the specified array of file paths. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
-    pub fn ConvertFiles(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub ConvertFiles(filePaths) -> OperationStatus);
+
     /// Start converting the specified track.  iTrackToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrack.
-    pub fn ConvertTrack(&self, iTrackToConvert: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub ConvertTrack(iTrackToConvert) -> OperationStatus);
+
     /// Start converting the specified tracks.  iTracksToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrackCollection.
-    pub fn ConvertTracks(&self, iTracksToConvert: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub ConvertTracks(iTracksToConvert) -> OperationStatus);
+
     /// Returns true if this version of the iTunes type library is compatible with the specified version.
     pub fn CheckVersion(&self, majorVersion: LONG, minorVersion: LONG, isCompatible: *mut VARIANT_BOOL) -> windows::core::Result<()> {
         todo!()
@@ -1517,17 +1526,14 @@ impl iTunes {
     get_object_from_str!(pub ConvertFile2(filePath) -> ConvertOperationStatus);
 
     /// Start converting the specified array of file paths. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
-    pub fn ConvertFiles2(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITConvertOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub ConvertFiles2(filePaths) -> ConvertOperationStatus);
+
     /// Start converting the specified track.  iTrackToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrack.
-    pub fn ConvertTrack2(&self, iTrackToConvert: *const VARIANT, iStatus: *mut Option<IITConvertOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub ConvertTrack2(iTrackToConvert) -> ConvertOperationStatus);
+
     /// Start converting the specified tracks.  iTracksToConvert is a VARIANT of type VT_DISPATCH that points to an IITTrackCollection.
-    pub fn ConvertTracks2(&self, iTracksToConvert: *const VARIANT, iStatus: *mut Option<IITConvertOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_variant!(pub ConvertTracks2(iTracksToConvert) -> ConvertOperationStatus);
+
     /// True if iTunes will process APPCOMMAND Windows messages.
     get_bool!(pub AppCommandMessageProcessingEnabled);
 
