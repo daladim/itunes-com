@@ -1023,8 +1023,11 @@ impl EQPreset {
     internal_set_bool!(pub Delete(updateAllTracks) as <Self as ComObjectWrapper>::WrappedType);
 
     /// Rename this EQ preset.
-    pub fn Rename(&self, newName: BSTR, updateAllTracks: bool) -> windows::core::Result<()> {
-        todo!()
+    pub fn Rename(&self, newName: String, updateAllTracks: bool) -> windows::core::Result<()> {
+        str_to_bstr!(newName, bstr);
+        let var_bool = if updateAllTracks { TRUE } else { FALSE };
+        let result = unsafe { self.com_object.Rename(bstr, var_bool) };
+        result.ok()
     }
 }
 
@@ -1053,6 +1056,13 @@ impl OperationStatus {
     get_object!(pub Tracks -> TrackCollection);
 }
 
+#[derive(Debug)]
+pub struct ConversionStatus {
+    pub trackName: String,
+    pub progressValue: LONG,
+    pub maxProgressValue: LONG,
+}
+
 /// IITConvertOperationStatus Interface
 ///
 /// See the generated [`IITConvertOperationStatus_Impl`] trait for more documentation about each function.
@@ -1060,9 +1070,19 @@ com_wrapper_struct!(ConvertOperationStatus);
 
 impl ConvertOperationStatus {
     /// Returns the current conversion status.
-    pub unsafe fn GetConversionStatus(&self, trackName: *mut BSTR, progressValue: *mut LONG, maxProgressValue: *mut LONG)  -> windows::core::Result<()> {
-        todo!()
+    pub fn GetConversionStatus(&self) -> windows::core::Result<ConversionStatus> {
+        let mut bstr = BSTR::default();
+        let mut progressValue = 0;
+        let mut maxProgressValue = 0;
+        let result = unsafe{ self.com_object.GetConversionStatus(&mut bstr, &mut progressValue as *mut LONG, &mut maxProgressValue as *mut LONG) };
+        result.ok()?;
+
+        let v: Vec<u16> = bstr.as_wide().to_vec();
+        let trackName = U16CString::from_vec_truncate(v).to_string_lossy();
+
+        Ok(ConversionStatus{ trackName, progressValue, maxProgressValue })
     }
+
     /// Stops the current conversion operation.
     no_args!(pub StopConversion);
 
@@ -1343,6 +1363,13 @@ impl WindowCollection {
 
 iterator!(WindowCollection, Window);
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct PlayerButtonState {
+    pub previousEnabled: bool,
+    pub playPauseStopState: ITPlayButtonState,
+    pub nextEnabled: bool,
+}
+
 /// IiTunes Interface
 ///
 /// See the generated [`IiTunes_Impl`] trait for more documentation about each function.
@@ -1406,14 +1433,19 @@ impl iTunes {
     get_object_from_variant!(pub ConvertTracks(iTracksToConvert) -> OperationStatus);
 
     /// Returns true if this version of the iTunes type library is compatible with the specified version.
-    pub fn CheckVersion(&self, majorVersion: LONG, minorVersion: LONG, isCompatible: *mut VARIANT_BOOL) -> windows::core::Result<()> {
-        todo!()
+    pub fn CheckVersion(&self, majorVersion: LONG, minorVersion: LONG) -> windows::core::Result<bool> {
+        let mut bool_result = FALSE;
+        let result = unsafe{ self.com_object.CheckVersion(majorVersion, minorVersion, &mut bool_result) };
+        result.ok()?;
+        Ok(bool_result.as_bool())
     }
+
     // TODO: implement this, but IITObject is a trait
     // /// Returns an IITObject corresponding to the specified IDs.
     // pub fn GetITObjectByID(&self, sourceID: LONG, playlistID: LONG, trackID: LONG, databaseID: LONG, iObject: *mut Option<IITObject>) -> windows::core::Result<()> {
     //     todo!()
     // }
+
     /// Creates a new playlist in the main library.
     get_object_from_str!(pub CreatePlaylist(playlistName) -> Playlist);
 
@@ -1426,11 +1458,12 @@ impl iTunes {
     /// Update the contents of the iPod.
     no_args!(pub UpdateIPod);
 
-    /// [id(0x60020015)]
-    /// (no other documentation provided)
-    pub fn Authorize(&self, numElems: LONG, data: *const VARIANT, names: *const BSTR) -> windows::core::Result<()> {
-        todo!()
-    }
+    // /// [id(0x60020015)]
+    // /// (no other documentation provided)
+    // pub fn Authorize(&self, numElems: LONG, data: *const VARIANT, names: *const BSTR) -> windows::core::Result<()> {
+    //     todo!()
+    // }
+
     /// Exits the iTunes application.
     no_args!(pub Quit);
 
@@ -1574,25 +1607,51 @@ impl iTunes {
     get_object_from_str!(pub CreateEQPreset(eqPresetName) -> EQPreset);
 
     /// Creates a new playlist in an existing source.
-    pub fn CreatePlaylistInSource(&self, playlistName: BSTR, iSource: *const VARIANT, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
-        todo!()
+    pub fn CreatePlaylistInSource(&self, playlistName: &str, iSource: &VARIANT) -> windows::core::Result<Playlist> {
+        str_to_bstr!(playlistName, bstr);
+        let mut out_playlist = None;
+        let result = unsafe{ self.com_object.CreatePlaylistInSource(bstr, iSource as *const VARIANT, &mut out_playlist as *mut _) };
+        result.ok()?;
+
+        create_wrapped_object!(Playlist, out_playlist)
     }
+
     /// Retrieves the current state of the player buttons.
-    pub fn GetPlayerButtonsState(&self, previousEnabled: *mut VARIANT_BOOL, playPauseStopState: *mut ITPlayButtonState, nextEnabled: *mut VARIANT_BOOL) -> windows::core::Result<()> {
-        todo!()
+    pub fn GetPlayerButtonsState(&self) -> windows::core::Result<PlayerButtonState> {
+        let mut previousEnabled = FALSE;
+        let mut playPauseStopState = ITPlayButtonState::ITPlayButtonStatePlayDisabled;
+        let mut nextEnabled = FALSE;
+        let result = unsafe{ self.com_object.GetPlayerButtonsState(&mut previousEnabled, &mut playPauseStopState, &mut nextEnabled) };
+        result.ok()?;
+        Ok(PlayerButtonState{
+            previousEnabled: previousEnabled.as_bool(),
+            playPauseStopState,
+            nextEnabled: nextEnabled.as_bool(),
+        })
     }
+
     /// Simulate click on a player control button.
     pub fn PlayerButtonClicked(&self, playerButton: ITPlayerButton, playerButtonModifierKeys: LONG) -> windows::core::Result<()> {
-        todo!()
+        let result = unsafe{ self.com_object.PlayerButtonClicked(playerButton, playerButtonModifierKeys) };
+        result.ok()
     }
+
     /// True if the Shuffle property is writable for the specified playlist.
-    pub fn CanSetShuffle(&self, iPlaylist: *const VARIANT, CanSetShuffle: *mut VARIANT_BOOL) -> windows::core::Result<()> {
-        todo!()
+    pub fn CanSetShuffle(&self, iPlaylist: &VARIANT) -> windows::core::Result<bool> {
+        let mut out_bool = FALSE;
+        let result = unsafe{ self.com_object.CanSetShuffle(iPlaylist as *const VARIANT, &mut out_bool) };
+        result.ok()?;
+        Ok(out_bool.as_bool())
     }
+
     /// True if the SongRepeat property is writable for the specified playlist.
-    pub fn CanSetSongRepeat(&self, iPlaylist: *const VARIANT, CanSetSongRepeat: *mut VARIANT_BOOL) -> windows::core::Result<()> {
-        todo!()
+    pub fn CanSetSongRepeat(&self, iPlaylist: &VARIANT) -> windows::core::Result<bool> {
+        let mut out_bool = FALSE;
+        let result = unsafe{ self.com_object.CanSetSongRepeat(iPlaylist as *const VARIANT, &mut out_bool) };
+        result.ok()?;
+        Ok(out_bool.as_bool())
     }
+
     /// Returns an IITConvertOperationStatus object if there is currently a conversion in progress.
     get_object!(pub ConvertOperationStatus -> ConvertOperationStatus);
 
@@ -1606,27 +1665,32 @@ impl iTunes {
     get_object_from_str!(pub CreateFolder(folderName) -> Playlist);
 
     /// Creates a new folder in an existing source.
-    pub fn CreateFolderInSource(&self, folderName: BSTR, iSource: *const VARIANT, iFolder: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
-        todo!()
+    pub fn CreateFolderInSource(&self, folderName: &str, iSource: &VARIANT) -> windows::core::Result<Playlist> {
+        str_to_bstr!(folderName, bstr);
+        let mut out_playlist = None;
+        let result = unsafe{ self.com_object.CreateFolderInSource(bstr, iSource as *const VARIANT, &mut out_playlist as *mut _) };
+        result.ok()?;
+
+        create_wrapped_object!(Playlist, out_playlist)
     }
+
     /// True if the sound volume control is enabled.
     get_bool!(pub SoundVolumeControlEnabled);
 
     /// The full path to the current iTunes library XML file.
     get_bstr!(pub LibraryXMLPath);
 
-    /// Returns the high 32 bits of the persistent ID of the specified IITObject.
-    pub unsafe fn ITObjectPersistentIDHigh(&self, iObject: *const VARIANT, highID: *mut LONG) -> windows::core::Result<()> {
-        todo!()
-    }
-    /// Returns the low 32 bits of the persistent ID of the specified IITObject.
-    pub unsafe fn ITObjectPersistentIDLow(&self, iObject: *const VARIANT, lowID: *mut LONG) -> windows::core::Result<()> {
-        todo!()
-    }
     /// Returns the high and low 32 bits of the persistent ID of the specified IITObject.
-    pub unsafe fn GetITObjectPersistentIDs(&self, iObject: *const VARIANT, highID: *mut LONG, lowID: *mut LONG) -> windows::core::Result<()> {
-        todo!()
+    pub fn GetITObjectPersistentID(&self, iObject: &VARIANT) -> windows::core::Result<i64> {
+        let mut highID: LONG = 0;
+        let mut lowID: LONG = 0;
+        let result = unsafe{ self.com_object.GetITObjectPersistentIDs(iObject as *const VARIANT, &mut highID, &mut lowID) };
+        result.ok()?;
+
+        let bytes = [highID.to_le_bytes(), lowID.to_le_bytes()].concat();
+        Ok(i64::from_le_bytes(bytes.try_into().unwrap()))  // cannot panic, the slice has the correct size
     }
+
     /// Returns the player's position within the currently playing track in milliseconds.
     get_long!(pub PlayerPositionMS);
 
