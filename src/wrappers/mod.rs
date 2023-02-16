@@ -346,6 +346,24 @@ macro_rules! get_object {
     };
 }
 
+macro_rules! get_object_from_str {
+    ($vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty) => {
+        get_object_from_str!($vis $fn_name($arg_name) -> $obj_type as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty as $inherited_type:ty) => {
+        $vis fn $fn_name(&self, $arg_name: &str) -> windows::core::Result<$obj_type> {
+            str_to_bstr!($arg_name, bstr);
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+
+            let mut out_obj = None;
+            let result = unsafe{ inherited_obj.$fn_name(bstr, &mut out_obj as *mut _) };
+            result.ok()?;
+
+            create_wrapped_object!($obj_type, out_obj)
+        }
+    };
+}
+
 macro_rules! set_object {
     ($vis:vis $fn_name:ident, $obj_type:ty) => {
         ::paste::paste! {
@@ -628,9 +646,8 @@ pub trait IITTrackWrapper: private::ComObjectWrapper {
     no_args!(Play as IITTrack);
 
     /// Add artwork from an image file to this track.
-    fn AddArtworkFromFile(&self, filePath: BSTR, iArtwork: *mut Option<IITArtwork>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(AddArtworkFromFile(filePath) -> Artwork as IITTrack);
+
     /// The track kind.
     get_enum!(Kind, ITTrackKind as IITTrack);
 
@@ -1024,17 +1041,15 @@ impl IITPlaylistWrapper for LibraryPlaylist {}
 
 impl LibraryPlaylist {
     /// Add the specified file path to the library.
-    pub fn AddFile(&self, filePath: BSTR, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub AddFile(filePath) -> OperationStatus);
+
     /// Add the specified array of file paths to the library. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
     pub fn AddFiles(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
         todo!()
     }
     /// Add the specified streaming audio URL to the library.
-    pub fn AddURL(&self, URL: BSTR, iURLTrack: *mut Option<IITURLTrack>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub AddURL(URL) -> URLTrack);
+
     /// Add the specified track to the library.  iTrackToAdd is a VARIANT of type VT_DISPATCH that points to an IITTrack.
     pub fn AddTrack(&self, iTrackToAdd: *const VARIANT, iAddedTrack: *mut Option<IITTrack>) -> windows::core::Result<()> {
         todo!()
@@ -1110,17 +1125,15 @@ impl IITPlaylistWrapper for UserPlaylist {}
 
 impl UserPlaylist {
     /// Add the specified file path to the user playlist.
-    pub fn AddFile(&self, filePath: BSTR, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub AddFile(filePath) -> OperationStatus);
+
     /// Add the specified array of file paths to the user playlist. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
     pub fn AddFiles(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
         todo!()
     }
     /// Add the specified streaming audio URL to the user playlist.
-    pub fn AddURL(&self, URL: BSTR, iURLTrack: *mut Option<IITURLTrack>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub AddURL(URL) -> URLTrack);
+
     /// Add the specified track to the user playlist.  iTrackToAdd is a VARIANT of type VT_DISPATCH that points to an IITTrack.
     pub fn AddTrack(&self, iTrackToAdd: *const VARIANT, iAddedTrack: *mut Option<IITTrack>) -> windows::core::Result<()> {
         todo!()
@@ -1141,13 +1154,11 @@ impl UserPlaylist {
     get_object!(pub Parent, UserPlaylist);
 
     /// Creates a new playlist in a folder playlist.
-    pub fn CreatePlaylist(&self, playlistName: BSTR, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub CreatePlaylist(playlistName) -> Playlist);
+
     /// Creates a new folder in a folder playlist.
-    pub fn CreateFolder(&self, folderName: BSTR, iFolder: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub CreateFolder(folderName) -> Playlist);
+
     /// The parent of this playlist.
     pub fn set_Parent(&self, iParentPlayList: *const VARIANT) -> windows::core::Result<()> {
         todo!()
@@ -1347,9 +1358,8 @@ impl iTunes {
     no_args!(pub Stop);
 
     /// Start converting the specified file path.
-    pub fn ConvertFile(&self, filePath: BSTR, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub ConvertFile(filePath) -> OperationStatus);
+
     /// Start converting the specified array of file paths. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
     pub fn ConvertFiles(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITOperationStatus>) -> windows::core::Result<()> {
         todo!()
@@ -1372,9 +1382,8 @@ impl iTunes {
     //     todo!()
     // }
     /// Creates a new playlist in the main library.
-    pub fn CreatePlaylist(&self, playlistName: BSTR, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub CreatePlaylist(playlistName) -> Playlist);
+
     /// Open the specified iTunes Store or streaming audio URL.
     set_bstr!(pub OpenURL, no_set_prefix);
 
@@ -1505,9 +1514,8 @@ impl iTunes {
     set_long!(pub SetOptions, no_set_prefix);
 
     /// Start converting the specified file path.
-    pub fn ConvertFile2(&self, filePath: BSTR, iStatus: *mut Option<IITConvertOperationStatus>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub ConvertFile2(filePath) -> ConvertOperationStatus);
+
     /// Start converting the specified array of file paths. filePaths can be of type VT_ARRAY|VT_VARIANT, where each entry is a VT_BSTR, or VT_ARRAY|VT_BSTR.  You can also pass a JScript Array object.
     pub fn ConvertFiles2(&self, filePaths: *const VARIANT, iStatus: *mut Option<IITConvertOperationStatus>) -> windows::core::Result<()> {
         todo!()
@@ -1533,9 +1541,8 @@ impl iTunes {
     set_bool!(pub ForceToForegroundOnDialog);
 
     /// Create a new EQ preset.
-    pub fn CreateEQPreset(&self, eqPresetName: BSTR, iEQPreset: *mut Option<IITEQPreset>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub CreateEQPreset(eqPresetName) -> EQPreset);
+
     /// Creates a new playlist in an existing source.
     pub fn CreatePlaylistInSource(&self, playlistName: BSTR, iSource: *const VARIANT, iPlaylist: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
         todo!()
@@ -1566,9 +1573,8 @@ impl iTunes {
     no_args!(pub UpdatePodcastFeeds);
 
     /// Creates a new folder in the main library.
-    pub fn CreateFolder(&self, folderName: BSTR, iFolder: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_str!(pub CreateFolder(folderName) -> Playlist);
+
     /// Creates a new folder in an existing source.
     pub fn CreateFolderInSource(&self, folderName: BSTR, iSource: *const VARIANT, iFolder: *mut Option<IITPlaylist>) -> windows::core::Result<()> {
         todo!()
