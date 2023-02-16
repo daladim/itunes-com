@@ -392,6 +392,23 @@ macro_rules! get_object_from_variant {
     };
 }
 
+macro_rules! get_object_from_long {
+    ($vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty) => {
+        get_object_from_long!($vis $fn_name($arg_name) -> $obj_type as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty as $inherited_type:ty) => {
+        $vis fn $fn_name(&self, $arg_name:LONG) -> windows::core::Result<$obj_type> {
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+
+            let mut out_obj = None;
+            let result = unsafe{ inherited_obj.$fn_name($arg_name, &mut out_obj as *mut _) };
+            result.ok()?;
+
+            create_wrapped_object!($obj_type, out_obj)
+        }
+    };
+}
+
 macro_rules! set_object {
     ($vis:vis $fn_name:ident, $obj_type:ty) => {
         ::paste::paste! {
@@ -653,9 +670,8 @@ com_wrapper_struct!(TrackCollection);
 
 impl TrackCollection {
     /// Returns an IITTrack object corresponding to the given index, where the index is defined by the play order of the playlist containing the track collection (1-based).
-    pub fn ItemByPlayOrder(&self, Index: LONG, iTrack: *mut Option<IITTrack>) -> windows::core::Result<()> {
-        todo!()
-    }
+    get_object_from_long!(pub ItemByPlayOrder(Index) -> Track);
+
     /// Returns an IITTrack object with the specified name.
     item_by_name!(pub Track);
 
