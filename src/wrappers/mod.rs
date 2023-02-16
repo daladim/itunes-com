@@ -173,6 +173,17 @@ macro_rules! set_long {
     };
 }
 
+macro_rules! set_variant {
+    ($vis:vis $func_name:ident ( $arg:ident )) => {
+        ::paste::paste! {
+            $vis fn [<set_ $func_name>](&self, $arg: &VARIANT) -> windows::core::Result<()> {
+                let result = unsafe{ self.com_object.[<set_ $func_name>]($arg as *const VARIANT) };
+                result.ok()
+            }
+        }
+    };
+}
+
 macro_rules! get_f64 {
     ($vis:vis $func_name:ident, $float_name:ty) => {
         get_f64!($vis $func_name, $float_name as <Self as ComObjectWrapper>::WrappedType);
@@ -1172,9 +1183,8 @@ impl UserPlaylist {
     get_object_from_str!(pub CreateFolder(folderName) -> Playlist);
 
     /// The parent of this playlist.
-    pub fn set_Parent(&self, iParentPlayList: *const VARIANT) -> windows::core::Result<()> {
-        todo!()
-    }
+    set_variant!(pub Parent(iParentPlayList));
+
     /// Reveal the user playlist in the main browser window.
     no_args!(pub Reveal);
 }
@@ -1302,9 +1312,7 @@ impl BrowserWindow {
     get_object!(pub SelectedPlaylist, Playlist);
 
     /// The currently selected playlist in the Source list.
-    pub fn set_SelectedPlaylist(&self, iPlaylist: *const VARIANT) -> windows::core::Result<()> {
-        todo!()
-    }
+    set_variant!(pub SelectedPlaylist(iPlaylist));
 }
 
 /// IITWindowCollection Interface
