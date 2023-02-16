@@ -104,7 +104,7 @@ macro_rules! get_bstr {
 }
 
 macro_rules! internal_set_bstr {
-    ($vis:vis $func_name:ident as $inherited_type:ty, key = $key:ident) => {
+    ($vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $vis fn $func_name(&self, $key: String) -> windows::core::Result<()> {
             str_to_bstr!($key, bstr);
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
@@ -120,11 +120,11 @@ macro_rules! set_bstr {
     };
     ($vis:vis $key:ident as $inherited_type:ty) => {
         ::paste::paste! {
-            internal_set_bstr!($vis [<set_ $key>] as $inherited_type, key = $key);
+            internal_set_bstr!($vis [<set_ $key>] ( $key ) as $inherited_type);
         }
     };
     ($vis:vis $key:ident, no_set_prefix) => {
-        internal_set_bstr!($vis $key as <Self as ComObjectWrapper>::WrappedType, key = $key);
+        internal_set_bstr!($vis $key ($key) as <Self as ComObjectWrapper>::WrappedType);
     };
 }
 
@@ -146,7 +146,7 @@ macro_rules! get_long {
 
 
 macro_rules! internal_set_long {
-    ($vis:vis $func_name:ident as $inherited_type:ty, key = $key:ident) => {
+    ($vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $vis fn $func_name(&self, $key: LONG) -> windows::core::Result<()> {
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name($key) };
@@ -163,12 +163,12 @@ macro_rules! set_long {
     };
     ($vis:vis $key:ident as $inherited_type:ty) => {
         ::paste::paste! {
-            internal_set_long!($vis [<set_ $key>] as $inherited_type, key = $key);
+            internal_set_long!($vis [<set_ $key>] ($key) as $inherited_type);
         }
     };
     ($vis:vis $key:ident, no_set_prefix) => {
         ::paste::paste! {
-            internal_set_long!($vis $key as <Self as ComObjectWrapper>::WrappedType, key = $key);
+            internal_set_long!($vis $key ($key) as <Self as ComObjectWrapper>::WrappedType);
         }
     };
 }
@@ -269,7 +269,7 @@ macro_rules! get_bool {
 
 
 macro_rules! internal_set_bool {
-    ($vis:vis $func_name:ident as $inherited_type:ty, key = $key:ident) => {
+    ($vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $vis fn $func_name(&self, $key: bool) -> windows::core::Result<()> {
             let variant_bool = match $key {
                 true => crate::com::TRUE,
@@ -288,20 +288,20 @@ macro_rules! set_bool {
     };
     ($vis:vis $key:ident as $inherited_type:ty) => {
         ::paste::paste! {
-            internal_set_bool!($vis [<set_ $key>] as $inherited_type, key = $key);
+            internal_set_bool!($vis [<set_ $key>] ( $key ) as $inherited_type);
         }
     };
     ($vis:vis $key:ident, no_set_prefix) => {
-        internal_set_bool!($vis $key as <Self as ComObjectWrapper>::WrappedType, key = $key);
+        internal_set_bool!($vis $key ($key) as <Self as ComObjectWrapper>::WrappedType);
     }
 }
 
 
 macro_rules! get_enum {
-    ($vis:vis $fn_name:ident, $enum_type:ty) => {
-        get_enum!($vis $fn_name, $enum_type as <Self as ComObjectWrapper>::WrappedType);
+    ($vis:vis $fn_name:ident -> $enum_type:ty) => {
+        get_enum!($vis $fn_name -> $enum_type as <Self as ComObjectWrapper>::WrappedType);
     };
-    ($vis:vis $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
+    ($vis:vis $fn_name:ident -> $enum_type:ty as $inherited_type:ty) => {
         $vis fn $fn_name(&self) -> windows::core::Result<$enum_type> {
             let mut value: $enum_type = FromPrimitive::from_i32(0).unwrap();
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
@@ -342,10 +342,10 @@ macro_rules! create_wrapped_object {
 }
 
 macro_rules! get_object {
-    ($vis:vis $fn_name:ident, $obj_type:ty) => {
-        get_object!($vis $fn_name, $obj_type as <Self as ComObjectWrapper>::WrappedType);
+    ($vis:vis $fn_name:ident -> $obj_type:ty) => {
+        get_object!($vis $fn_name -> $obj_type as <Self as ComObjectWrapper>::WrappedType);
     };
-    ($vis:vis $fn_name:ident, $obj_type:ty as $inherited_type:ty) => {
+    ($vis:vis $fn_name:ident -> $obj_type:ty as $inherited_type:ty) => {
         $vis fn $fn_name(&self) -> windows::core::Result<$obj_type> {
             let mut out_obj = None;
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
@@ -561,7 +561,7 @@ impl IITObjectWrapper for Source {}
 
 impl Source {
     /// The source kind.
-    get_enum!(pub Kind, ITSourceKind);
+    get_enum!(pub Kind -> ITSourceKind);
 
     /// The total size of the source, if it has a fixed size.
     get_double!(pub Capacity);
@@ -570,7 +570,7 @@ impl Source {
     get_double!(pub FreeSpace);
 
     /// Returns a collection of playlists.
-    get_object!(pub Playlists, PlaylistCollection);
+    get_object!(pub Playlists -> PlaylistCollection);
 }
 
 /// IITPlaylistCollection Interface
@@ -620,10 +620,10 @@ pub trait IITPlaylistWrapper: private::ComObjectWrapper {
     }
 
     /// The playlist kind.
-    get_enum!(Kind, ITPlaylistKind as IITPlaylist);
+    get_enum!(Kind -> ITPlaylistKind as IITPlaylist);
 
     /// The source that contains this playlist.
-    get_object!(Source, Source as IITPlaylist);
+    get_object!(Source -> Source as IITPlaylist);
 
     /// The total length of all songs in the playlist (in seconds).
     get_long!(Duration as IITPlaylist);
@@ -638,7 +638,7 @@ pub trait IITPlaylistWrapper: private::ComObjectWrapper {
     get_double!(Size as IITPlaylist);
 
     /// The playback repeat mode.
-    get_enum!(SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
+    get_enum!(SongRepeat -> ITPlaylistRepeatMode as IITPlaylist);
 
     /// The playback repeat mode.
     set_enum!(SongRepeat, ITPlaylistRepeatMode as IITPlaylist);
@@ -650,7 +650,7 @@ pub trait IITPlaylistWrapper: private::ComObjectWrapper {
     get_bool!(Visible as IITPlaylist);
 
     /// Returns a collection of tracks in this playlist.
-    get_object!(Tracks, TrackCollection as IITPlaylist);
+    get_object!(Tracks -> TrackCollection as IITPlaylist);
 }
 
 /// IITPlaylist Interface
@@ -693,10 +693,10 @@ pub trait IITTrackWrapper: private::ComObjectWrapper {
     get_object_from_str!(AddArtworkFromFile(filePath) -> Artwork as IITTrack);
 
     /// The track kind.
-    get_enum!(Kind, ITTrackKind as IITTrack);
+    get_enum!(Kind -> ITTrackKind as IITTrack);
 
     /// The playlist that contains this track.
-    get_object!(Playlist, Playlist as IITTrack);
+    get_object!(Playlist -> Playlist as IITTrack);
 
     /// The album containing the track.
     get_bstr!(Album as IITTrack);
@@ -852,7 +852,7 @@ pub trait IITTrackWrapper: private::ComObjectWrapper {
     set_long!(Year as IITTrack);
 
     /// Returns a collection of artwork.
-    get_object!(Artwork, ArtworkCollection as IITTrack);
+    get_object!(Artwork -> ArtworkCollection as IITTrack);
 }
 
 /// IITTrack Interface
@@ -880,7 +880,7 @@ impl Artwork {
     set_bstr!(pub SaveArtworkToFile, no_set_prefix);
 
     /// The format of the artwork.
-    get_enum!(pub Format, ITArtworkFormat);
+    get_enum!(pub Format -> ITArtworkFormat);
 
     /// True if the artwork was downloaded by iTunes.
     get_bool!(pub IsDownloadedArtwork);
@@ -1020,7 +1020,7 @@ impl EQPreset {
     set_double!(pub Band10);
 
     /// Delete this EQ preset.
-    internal_set_bool!(pub Delete as <Self as ComObjectWrapper>::WrappedType, key = updateAllTracks);
+    internal_set_bool!(pub Delete(updateAllTracks) as <Self as ComObjectWrapper>::WrappedType);
 
     /// Rename this EQ preset.
     pub fn Rename(&self, newName: BSTR, updateAllTracks: bool) -> windows::core::Result<()> {
@@ -1050,7 +1050,7 @@ impl OperationStatus {
     get_bool!(pub InProgress);
 
     /// Returns a collection containing the tracks that were generated by the operation.
-    get_object!(pub Tracks, TrackCollection);
+    get_object!(pub Tracks -> TrackCollection);
 }
 
 /// IITConvertOperationStatus Interface
@@ -1148,13 +1148,13 @@ impl URLTrack {
     set_long!(pub AlbumRating);
 
     /// The album rating kind.
-    get_enum!(pub AlbumRatingKind, ITRatingKind);
+    get_enum!(pub AlbumRatingKind -> ITRatingKind);
 
     /// The track rating kind.
-    get_enum!(pub ratingKind, ITRatingKind);
+    get_enum!(pub ratingKind -> ITRatingKind);
 
     /// Returns a collection of playlists that contain the song that this track represents.
-    get_object!(pub Playlists, PlaylistCollection);
+    get_object!(pub Playlists -> PlaylistCollection);
 }
 
 /// IITUserPlaylist Interface
@@ -1187,10 +1187,10 @@ impl UserPlaylist {
     get_bool!(pub Smart);
 
     /// The playlist special kind.
-    get_enum!(pub SpecialKind, ITUserPlaylistSpecialKind);
+    get_enum!(pub SpecialKind -> ITUserPlaylistSpecialKind);
 
     /// The parent of this playlist.
-    get_object!(pub Parent, UserPlaylist);
+    get_object!(pub Parent -> UserPlaylist);
 
     /// Creates a new playlist in a folder playlist.
     get_object_from_str!(pub CreatePlaylist(playlistName) -> Playlist);
@@ -1237,7 +1237,7 @@ impl Window {
     get_bstr!(pub Name);
 
     /// The window kind.
-    get_enum!(pub Kind, ITWindowKind);
+    get_enum!(pub Kind -> ITWindowKind);
 
     /// True if the window is visible. Note that the main browser window cannot be hidden.
     get_bool!(pub Visible);
@@ -1322,10 +1322,10 @@ impl BrowserWindow {
     set_bool!(pub MiniPlayer);
 
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(pub SelectedTracks, TrackCollection);
+    get_object!(pub SelectedTracks -> TrackCollection);
 
     /// The currently selected playlist in the Source list.
-    get_object!(pub SelectedPlaylist, Playlist);
+    get_object!(pub SelectedPlaylist -> Playlist);
 
     /// The currently selected playlist in the Source list.
     set_variant!(pub SelectedPlaylist(iPlaylist));
@@ -1435,19 +1435,19 @@ impl iTunes {
     no_args!(pub Quit);
 
     /// Returns a collection of music sources (music library, CD, device, etc.).
-    get_object!(pub Sources, SourceCollection);
+    get_object!(pub Sources -> SourceCollection);
 
     /// Returns a collection of encoders.
-    get_object!(pub Encoders, EncoderCollection);
+    get_object!(pub Encoders -> EncoderCollection);
 
     /// Returns a collection of EQ presets.
-    get_object!(pub EQPresets, EQPresetCollection);
+    get_object!(pub EQPresets -> EQPresetCollection);
 
     /// Returns a collection of visual plug-ins.
-    get_object!(pub Visuals, VisualCollection);
+    get_object!(pub Visuals -> VisualCollection);
 
     /// Returns a collection of windows.
-    get_object!(pub Windows, WindowCollection);
+    get_object!(pub Windows -> WindowCollection);
 
     /// Returns the sound output volume (0 = minimum, 100 = maximum).
     get_long!(pub SoundVolume);
@@ -1462,7 +1462,7 @@ impl iTunes {
     set_bool!(pub Mute);
 
     /// Returns the current player state.
-    get_enum!(pub PlayerState, ITPlayerState);
+    get_enum!(pub PlayerState -> ITPlayerState);
 
     /// Returns the player's position within the currently playing track in seconds.
     get_long!(pub PlayerPosition);
@@ -1471,7 +1471,7 @@ impl iTunes {
     set_long!(pub PlayerPosition);
 
     /// Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).
-    get_object!(pub CurrentEncoder, Encoder);
+    get_object!(pub CurrentEncoder -> Encoder);
 
     /// Returns the currently selected encoder (AAC, MP3, AIFF, WAV, etc.).
     set_object!(pub CurrentEncoder, Encoder);
@@ -1489,13 +1489,13 @@ impl iTunes {
     set_bool!(pub FullScreenVisuals);
 
     /// Returns the size of the displayed visual.
-    get_enum!(pub VisualSize, ITVisualSize);
+    get_enum!(pub VisualSize -> ITVisualSize);
 
     /// Returns the size of the displayed visual.
     set_enum!(pub VisualSize, ITVisualSize);
 
     /// Returns the currently selected visual plug-in.
-    get_object!(pub CurrentVisual, Visual);
+    get_object!(pub CurrentVisual -> Visual);
 
     /// Returns the currently selected visual plug-in.
     set_object!(pub CurrentVisual, Visual);
@@ -1507,7 +1507,7 @@ impl iTunes {
     set_bool!(pub EQEnabled);
 
     /// Returns the currently selected EQ preset.
-    get_object!(pub CurrentEQPreset, EQPreset);
+    get_object!(pub CurrentEQPreset -> EQPreset);
 
     /// Returns the currently selected EQ preset.
     set_object!(pub CurrentEQPreset, EQPreset);
@@ -1519,25 +1519,25 @@ impl iTunes {
     get_bstr!(pub set_CurrentStreamURL);
 
     /// Returns the main iTunes browser window.
-    get_object!(pub BrowserWindow, BrowserWindow);
+    get_object!(pub BrowserWindow -> BrowserWindow);
 
     /// Returns the EQ window.
-    get_object!(pub EQWindow, Window);
+    get_object!(pub EQWindow -> Window);
 
     /// Returns the source that represents the main library.
-    get_object!(pub LibrarySource, Source);
+    get_object!(pub LibrarySource -> Source);
 
     /// Returns the main library playlist in the main library source.
-    get_object!(pub LibraryPlaylist, LibraryPlaylist);
+    get_object!(pub LibraryPlaylist -> LibraryPlaylist);
 
     /// Returns the currently targeted track.
-    get_object!(pub CurrentTrack, Track);
+    get_object!(pub CurrentTrack -> Track);
 
     /// Returns the playlist containing the currently targeted track.
-    get_object!(pub CurrentPlaylist, Playlist);
+    get_object!(pub CurrentPlaylist -> Playlist);
 
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(pub SelectedTracks, TrackCollection);
+    get_object!(pub SelectedTracks -> TrackCollection);
 
     /// Returns the version of the iTunes application.
     get_bstr!(pub Version);
@@ -1594,7 +1594,7 @@ impl iTunes {
         todo!()
     }
     /// Returns an IITConvertOperationStatus object if there is currently a conversion in progress.
-    get_object!(pub ConvertOperationStatus, ConvertOperationStatus);
+    get_object!(pub ConvertOperationStatus -> ConvertOperationStatus);
 
     /// Subscribe to the specified podcast feed URL.
     set_bstr!(pub SubscribeToPodcast, no_set_prefix);
@@ -1746,7 +1746,7 @@ impl FileOrCDTrack {
     set_long!(pub BookmarkTime);
 
     /// The video track kind.
-    get_enum!(pub VideoKind, ITVideoKind);
+    get_enum!(pub VideoKind -> ITVideoKind);
 
     /// The video track kind.
     set_enum!(pub VideoKind, ITVideoKind);
@@ -1857,13 +1857,13 @@ impl FileOrCDTrack {
     set_long!(pub AlbumRating);
 
     /// The album rating kind.
-    get_enum!(pub AlbumRatingKind, ITRatingKind);
+    get_enum!(pub AlbumRatingKind -> ITRatingKind);
 
     /// The track rating kind.
-    get_enum!(pub ratingKind, ITRatingKind);
+    get_enum!(pub ratingKind -> ITRatingKind);
 
     /// Returns a collection of playlists that contain the song that this track represents.
-    get_object!(pub Playlists, PlaylistCollection);
+    get_object!(pub Playlists -> PlaylistCollection);
 
     /// The full path to the file represented by this track.
     set_bstr!(pub Location);
@@ -1879,8 +1879,8 @@ com_wrapper_struct!(PlaylistWindow);
 
 impl PlaylistWindow {
     /// Returns a collection containing the currently selected track or tracks.
-    get_object!(pub SelectedTracks, TrackCollection);
+    get_object!(pub SelectedTracks -> TrackCollection);
 
     /// The playlist displayed in the window.
-    get_object!(pub Playlist, Playlist);
+    get_object!(pub Playlist -> Playlist);
 }
