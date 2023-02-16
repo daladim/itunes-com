@@ -317,24 +317,24 @@ macro_rules! set_enum {
 }
 
 macro_rules! create_wrapped_object {
-    ($obj_type:ident, $out_obj:ident) => {
+    ($obj_type:ty, $out_obj:ident) => {
         match $out_obj {
             None => Err(windows::core::Error::new(
                 NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
                 windows::h!("Item not found").clone(),
             )),
             Some(com_object) => Ok(
-                $obj_type::from_com_object(com_object)
+                <$obj_type>::from_com_object(com_object)
             )
         }
     };
 }
 
 macro_rules! get_object {
-    ($vis:vis $fn_name:ident, $obj_type:ident) => {
+    ($vis:vis $fn_name:ident, $obj_type:ty) => {
         get_object!($vis $fn_name, $obj_type as <Self as ComObjectWrapper>::WrappedType);
     };
-    ($vis:vis $fn_name:ident, $obj_type:ident as $inherited_type:ty) => {
+    ($vis:vis $fn_name:ident, $obj_type:ty as $inherited_type:ty) => {
         $vis fn $fn_name(&self) -> windows::core::Result<$obj_type> {
             let mut out_obj = None;
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
@@ -347,7 +347,7 @@ macro_rules! get_object {
 }
 
 macro_rules! set_object {
-    ($vis:vis $fn_name:ident, $obj_type:ident) => {
+    ($vis:vis $fn_name:ident, $obj_type:ty) => {
         ::paste::paste! {
             $vis fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
                 let object_to_set = data.com_object();
@@ -359,7 +359,7 @@ macro_rules! set_object {
 }
 
 macro_rules! item_by_name {
-    ($vis:vis $obj_type:ident) => {
+    ($vis:vis $obj_type:ty) => {
         $vis fn ItemByName(&self, name: String) -> windows::core::Result<$obj_type> {
             str_to_bstr!(name, bstr);
 
@@ -373,7 +373,7 @@ macro_rules! item_by_name {
 }
 
 macro_rules! item_by_persistent_id {
-    ($vis:vis $obj_type:ident) => {
+    ($vis:vis $obj_type:ty) => {
         $vis fn ItemByPersistentID(&self, id: u64) -> windows::core::Result<$obj_type> {
             let b = id.to_le_bytes();
             let id_high = i32::from_le_bytes(b[..4].try_into().unwrap());
@@ -399,7 +399,7 @@ pub trait Iterable {
 }
 
 macro_rules! iterator {
-    ($obj_type:ident, $item_type:ident) => {
+    ($obj_type:ty, $item_type:ident) => {
         impl $obj_type {
             pub fn iter(&self) -> windows::core::Result<iter::Iterator<$obj_type, $item_type>> {
                 iter::Iterator::new(&self)
