@@ -552,6 +552,52 @@ pub trait IITObjectWrapper: private::ComObjectWrapper {
     get_long!(TrackDatabaseID as IITObject);
 }
 
+/// Enum of all structs that implement [`IITObjectWrapper`]
+pub enum PossibleIITObject {
+    Source(Source),
+    Playlist(Playlist),
+    Track(Track),
+}
+
+impl PossibleIITObject {
+    fn from_com_object(com_object: IITObject) -> windows::core::Result<PossibleIITObject> {
+        if let Ok(source) = com_object.cast::<IITSource>() {
+            Ok(PossibleIITObject::Source(Source::from_com_object(source)))
+        } else if let Ok(playlist) = com_object.cast::<IITPlaylist>() {
+            Ok(PossibleIITObject::Playlist(Playlist::from_com_object(playlist)))
+        } else if let Ok(track) = com_object.cast::<IITTrack>() {
+            Ok(PossibleIITObject::Track(Track::from_com_object(track)))
+        } else {
+            Err(windows::core::Error::new(
+                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
+                windows::h!("Item not found").clone(),
+            ))
+        }
+    }
+
+    pub fn as_source(&self) -> Option<&Source> {
+        match self {
+            PossibleIITObject::Source(s) => Some(s),
+            _ => None
+        }
+    }
+
+    pub fn as_playlist(&self) -> Option<&Playlist> {
+        match self {
+            PossibleIITObject::Playlist(p) => Some(p),
+            _ => None
+        }
+    }
+
+    pub fn as_track(&self) -> Option<&Track> {
+        match self {
+            PossibleIITObject::Track(t) => Some(t),
+            _ => None
+        }
+    }
+}
+
+
 /// IITSource Interface
 ///
 /// See the generated [`IITSource_Impl`] trait for more documentation about each function.
@@ -1440,11 +1486,28 @@ impl iTunes {
         Ok(bool_result.as_bool())
     }
 
-    // TODO: implement this, but IITObject is a trait
-    // /// Returns an IITObject corresponding to the specified IDs.
-    // pub fn GetITObjectByID(&self, sourceID: LONG, playlistID: LONG, trackID: LONG, databaseID: LONG, iObject: *mut Option<IITObject>) -> windows::core::Result<()> {
-    //     todo!()
-    // }
+    /// Returns an IITObject corresponding to the specified IDs.
+    pub fn GetITObjectByID(&self, ids: ObjectIDs) -> windows::core::Result<PossibleIITObject> {
+        let mut out_obj: Option<IITObject> = None;
+        let result = unsafe{ self.com_object.GetITObjectByID(
+            ids.sourceID,
+            ids.playlistID,
+            ids.trackID,
+            ids.databaseID,
+            &mut out_obj as *mut _
+        ) };
+        result.ok()?;
+
+        match out_obj {
+            None => Err(windows::core::Error::new(
+                NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
+                windows::h!("Item not found").clone(),
+            )),
+            Some(obj) => {
+                PossibleIITObject::from_com_object(obj)
+            },
+        }
+    }
 
     /// Creates a new playlist in the main library.
     get_object_from_str!(pub CreatePlaylist(playlistName) -> Playlist);
