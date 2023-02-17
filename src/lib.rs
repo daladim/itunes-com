@@ -25,6 +25,10 @@
 //!
 //! In case it is built with the `wrappers` Cargo feature, it also provides safe, Rust-typed wrappers over this API.
 //! See the [`wrappers`] module.
+//!
+//! ## Examples
+//!
+//! Examples are available in the `examples/` folder. Run them with `cargo run --example ... --all-features`.
 
 
 pub mod com;
