@@ -1243,6 +1243,7 @@ impl OperationStatus {
         pub Tracks -> TrackCollection);
 }
 
+/// The three items of a `ConversionStatus`
 #[derive(Debug)]
 pub struct ConversionStatus {
     pub trackName: String,
@@ -1612,6 +1613,7 @@ impl WindowCollection {
 
 iterator!(WindowCollection, Window);
 
+/// The three items of a `PlayerButtonState`
 #[derive(Debug, Eq, PartialEq)]
 pub struct PlayerButtonState {
     pub previousEnabled: bool,
