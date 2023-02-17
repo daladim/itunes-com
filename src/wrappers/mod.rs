@@ -8,7 +8,7 @@
 pub mod iter;
 
 // We'd rather use the re-exported versions, so that they are available to our users.
-use crate::com::*;
+use crate::sys::*;
 
 use windows::core::BSTR;
 use windows::core::HRESULT;
@@ -48,19 +48,19 @@ macro_rules! com_wrapper_struct {
     ($(#[$attr:meta])* $struct_name:ident as $com_type:ident) => {
         $(#[$attr])*
         pub struct $struct_name {
-            com_object: crate::com::$com_type,
+            com_object: crate::sys::$com_type,
         }
 
         impl private::ComObjectWrapper for $struct_name {
             type WrappedType = $com_type;
 
-            fn from_com_object(com_object: crate::com::$com_type) -> Self {
+            fn from_com_object(com_object: crate::sys::$com_type) -> Self {
                 Self {
                     com_object
                 }
             }
 
-            fn com_object(&self) -> &crate::com::$com_type {
+            fn com_object(&self) -> &crate::sys::$com_type {
                 &self.com_object
             }
         }
@@ -265,7 +265,7 @@ macro_rules! get_bool {
         ::paste::paste! {
             $(#[$attr])*
             $vis fn [<is _$func_name>](&self) -> windows::core::Result<bool> {
-                let mut value = crate::com::FALSE;
+                let mut value = crate::sys::FALSE;
                 let inherited_obj = self.com_object().cast::<$inherited_type>()?;
                 let result = unsafe{ inherited_obj.$func_name(&mut value) };
                 result.ok()?;
@@ -283,8 +283,8 @@ macro_rules! internal_set_bool {
         $(#[$attr])*
         $vis fn $func_name(&mut self, $key: bool) -> windows::core::Result<()> {
             let variant_bool = match $key {
-                true => crate::com::TRUE,
-                false => crate::com::FALSE,
+                true => crate::sys::TRUE,
+                false => crate::sys::FALSE,
             };
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name(variant_bool) };
@@ -626,7 +626,7 @@ impl PossibleIITObject {
 
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITSource`](crate::com::IITSource)
+    /// Safe wrapper over a [`IITSource`](crate::sys::IITSource)
     Source);
 
 impl IITObjectWrapper for Source {}
@@ -650,7 +650,7 @@ impl Source {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITPlaylistCollection`](crate::com::IITPlaylistCollection)
+    /// Safe wrapper over a [`IITPlaylistCollection`](crate::sys::IITPlaylistCollection)
     PlaylistCollection);
 
 impl PlaylistCollection {
@@ -744,7 +744,7 @@ pub trait IITPlaylistWrapper: private::ComObjectWrapper {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITPlaylist`](crate::com::IITPlaylist)
+    /// Safe wrapper over a [`IITPlaylist`](crate::sys::IITPlaylist)
     Playlist);
 
 impl IITObjectWrapper for Playlist {}
@@ -753,7 +753,7 @@ impl IITPlaylistWrapper for Playlist {}
 
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITTrackCollection`](crate::com::IITTrackCollection)
+    /// Safe wrapper over a [`IITTrackCollection`](crate::sys::IITTrackCollection)
     TrackCollection);
 
 impl TrackCollection {
@@ -1004,7 +1004,7 @@ pub trait IITTrackWrapper: private::ComObjectWrapper {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITTrack`](crate::com::IITTrack)
+    /// Safe wrapper over a [`IITTrack`](crate::sys::IITTrack)
     Track);
 
 impl IITObjectWrapper for Track {}
@@ -1020,7 +1020,7 @@ impl Track {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITArtwork`](crate::com::IITArtwork)
+    /// Safe wrapper over a [`IITArtwork`](crate::sys::IITArtwork)
     Artwork);
 
 impl Artwork {
@@ -1054,7 +1054,7 @@ impl Artwork {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITArtworkCollection`](crate::com::IITArtworkCollection)
+    /// Safe wrapper over a [`IITArtworkCollection`](crate::sys::IITArtworkCollection)
     ArtworkCollection);
 
 impl ArtworkCollection {}
@@ -1062,7 +1062,7 @@ impl ArtworkCollection {}
 iterator!(ArtworkCollection, Artwork);
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITSourceCollection`](crate::com::IITSourceCollection)
+    /// Safe wrapper over a [`IITSourceCollection`](crate::sys::IITSourceCollection)
     SourceCollection);
 
 impl SourceCollection {
@@ -1078,7 +1078,7 @@ impl SourceCollection {
 iterator!(SourceCollection, Source);
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITEncoder`](crate::com::IITEncoder)
+    /// Safe wrapper over a [`IITEncoder`](crate::sys::IITEncoder)
     Encoder);
 
 impl Encoder {
@@ -1092,7 +1092,7 @@ impl Encoder {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITEncoderCollection`](crate::com::IITEncoderCollection)
+    /// Safe wrapper over a [`IITEncoderCollection`](crate::sys::IITEncoderCollection)
     EncoderCollection);
 
 impl EncoderCollection {
@@ -1104,7 +1104,7 @@ impl EncoderCollection {
 iterator!(EncoderCollection, Encoder);
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITEQPreset`](crate::com::IITEQPreset)
+    /// Safe wrapper over a [`IITEQPreset`](crate::sys::IITEQPreset)
     EQPreset);
 
 impl EQPreset {
@@ -1218,7 +1218,7 @@ impl EQPreset {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITEQPresetCollection`](crate::com::IITEQPresetCollection)
+    /// Safe wrapper over a [`IITEQPresetCollection`](crate::sys::IITEQPresetCollection)
     EQPresetCollection);
 
 impl EQPresetCollection {
@@ -1230,7 +1230,7 @@ impl EQPresetCollection {
 iterator!(EQPresetCollection, EQPreset);
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITOperationStatus`](crate::com::IITOperationStatus)
+    /// Safe wrapper over a [`IITOperationStatus`](crate::sys::IITOperationStatus)
     OperationStatus);
 
 impl OperationStatus {
@@ -1251,7 +1251,7 @@ pub struct ConversionStatus {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITConvertOperationStatus`](crate::com::IITConvertOperationStatus)
+    /// Safe wrapper over a [`IITConvertOperationStatus`](crate::sys::IITConvertOperationStatus)
     ConvertOperationStatus);
 
 impl ConvertOperationStatus {
@@ -1287,7 +1287,7 @@ impl ConvertOperationStatus {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITLibraryPlaylist`](crate::com::IITLibraryPlaylist)
+    /// Safe wrapper over a [`IITLibraryPlaylist`](crate::sys::IITLibraryPlaylist)
     LibraryPlaylist);
 
 impl IITPlaylistWrapper for LibraryPlaylist {}
@@ -1311,7 +1311,7 @@ impl LibraryPlaylist {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITURLTrack`](crate::com::IITURLTrack)
+    /// Safe wrapper over a [`IITURLTrack`](crate::sys::IITURLTrack)
     URLTrack);
 
 impl IITTrackWrapper for URLTrack {}
@@ -1387,7 +1387,7 @@ impl URLTrack {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITUserPlaylist`](crate::com::IITUserPlaylist)
+    /// Safe wrapper over a [`IITUserPlaylist`](crate::sys::IITUserPlaylist)
     UserPlaylist);
 
 impl IITPlaylistWrapper for UserPlaylist {}
@@ -1447,7 +1447,7 @@ impl UserPlaylist {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITVisual`](crate::com::IITVisual)
+    /// Safe wrapper over a [`IITVisual`](crate::sys::IITVisual)
     Visual);
 
 impl Visual {
@@ -1457,7 +1457,7 @@ impl Visual {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITVisualCollection`](crate::com::IITVisualCollection)
+    /// Safe wrapper over a [`IITVisualCollection`](crate::sys::IITVisualCollection)
     VisualCollection);
 
 impl VisualCollection {
@@ -1469,7 +1469,7 @@ impl VisualCollection {
 iterator!(VisualCollection, Visual);
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITWindow`](crate::com::IITWindow)
+    /// Safe wrapper over a [`IITWindow`](crate::sys::IITWindow)
     Window);
 
 impl Window {
@@ -1575,7 +1575,7 @@ impl Window {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITBrowserWindow`](crate::com::IITBrowserWindow)
+    /// Safe wrapper over a [`IITBrowserWindow`](crate::sys::IITBrowserWindow)
     BrowserWindow);
 
 impl BrowserWindow {
@@ -1601,7 +1601,7 @@ impl BrowserWindow {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITWindowCollection`](crate::com::IITWindowCollection)
+    /// Safe wrapper over a [`IITWindowCollection`](crate::sys::IITWindowCollection)
     WindowCollection);
 
 impl WindowCollection {
@@ -1620,7 +1620,7 @@ pub struct PlayerButtonState {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IiTunes`](crate::com::IiTunes)
+    /// Safe wrapper over a [`IiTunes`](crate::sys::IiTunes)
     iTunes as IiTunes);
 
 impl iTunes {
@@ -1631,7 +1631,7 @@ impl iTunes {
         }
 
         Ok(Self {
-            com_object: unsafe { CoCreateInstance(&crate::com::ITUNES_APP_COM_GUID, None, CLSCTX_ALL)? },
+            com_object: unsafe { CoCreateInstance(&crate::sys::ITUNES_APP_COM_GUID, None, CLSCTX_ALL)? },
         })
     }
 
@@ -2038,7 +2038,7 @@ impl iTunes {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITAudioCDPlaylist`](crate::com::IITAudioCDPlaylist)
+    /// Safe wrapper over a [`IITAudioCDPlaylist`](crate::sys::IITAudioCDPlaylist)
     AudioCDPlaylist);
 
 impl IITPlaylistWrapper for AudioCDPlaylist {}
@@ -2078,7 +2078,7 @@ impl AudioCDPlaylist {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITIPodSource`](crate::com::IITIPodSource)
+    /// Safe wrapper over a [`IITIPodSource`](crate::sys::IITIPodSource)
     IPodSource);
 
 impl IPodSource {
@@ -2096,7 +2096,7 @@ impl IPodSource {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITFileOrCDTrack`](crate::com::IITFileOrCDTrack)
+    /// Safe wrapper over a [`IITFileOrCDTrack`](crate::sys::IITFileOrCDTrack)
     FileOrCDTrack);
 
 impl IITTrackWrapper for FileOrCDTrack {}
@@ -2349,7 +2349,7 @@ impl FileOrCDTrack {
 }
 
 com_wrapper_struct!(
-    /// Safe wrapper over a [`IITPlaylistWindow`](crate::com::IITPlaylistWindow)
+    /// Safe wrapper over a [`IITPlaylistWindow`](crate::sys::IITPlaylistWindow)
     PlaylistWindow);
 
 impl PlaylistWindow {

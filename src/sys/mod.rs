@@ -14,7 +14,7 @@ mod com_enums;
 pub use com_interfaces::*;
 pub use com_enums::*;
 
-/// The GUID used to create an instance of [`crate::com::IiTunes`].
+/// The GUID used to create an instance of [`crate::sys::IiTunes`].
 pub const ITUNES_APP_COM_GUID: windows::core::GUID = windows::core::GUID::from_u128(0xDC0C2640_1415_4644_875C_6F4D769839BA);
 
 // These types are part of the public API and must be re-exported so that users can use them in their right version.
@@ -26,6 +26,6 @@ pub use windows::{
 };
 
 /// Convenience constant
-pub const TRUE: crate::com::VARIANT_BOOL = crate::com::VARIANT_BOOL(-1);
+pub const TRUE: crate::sys::VARIANT_BOOL = crate::sys::VARIANT_BOOL(-1);
 /// Convenience constant
-pub const FALSE: crate::com::VARIANT_BOOL = crate::com::VARIANT_BOOL(0);
+pub const FALSE: crate::sys::VARIANT_BOOL = crate::sys::VARIANT_BOOL(0);

@@ -19,7 +19,7 @@
 //!
 //! ## Raw bindings
 //!
-//! This crate provides raw bindings over the COM API. See the [`com`] module.
+//! This crate provides raw bindings over the COM API. See the [`sys`] module.
 //!
 //! ## Safe bindings
 //!
@@ -31,6 +31,6 @@
 //! Examples are available in the `examples/` folder. Run them with `cargo run --example ... --all-features`.
 
 
-pub mod com;
+pub mod sys;
 #[cfg(feature = "wrappers")]
 pub mod wrappers;

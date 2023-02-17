@@ -4,8 +4,8 @@
 
 #![allow(non_snake_case)]
 
-use itunes_com::com::ITSourceKind;
-use itunes_com::com::ITPlaylistSearchField;
+use itunes_com::sys::ITSourceKind;
+use itunes_com::sys::ITPlaylistSearchField;
 use itunes_com::wrappers::IITObjectWrapper;
 use itunes_com::wrappers::IITPlaylistWrapper;
 
