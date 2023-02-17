@@ -910,6 +910,14 @@ impl IITObjectWrapper for Track {}
 
 impl IITTrackWrapper for Track {}
 
+impl Track {
+    /// In case the concrete COM object for this track actually is a derived `FileOrCDTrack`, this is a way to retrieve it
+    pub fn as_file_or_cd_track(&self) -> windows::core::Result<FileOrCDTrack> {
+        let foct = self.com_object.cast::<IITFileOrCDTrack>()?;
+        Ok(FileOrCDTrack::from_com_object(foct))
+    }
+}
+
 /// IITArtwork Interface
 ///
 /// See the generated [`IITArtwork_Impl`] trait for more documentation about each function.
