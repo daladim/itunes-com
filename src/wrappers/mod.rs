@@ -109,7 +109,7 @@ macro_rules! get_bstr {
 macro_rules! internal_set_bstr {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $(#[$attr])*
-        $vis fn $func_name(&self, $key: String) -> windows::core::Result<()> {
+        $vis fn $func_name(&self, $key: &str) -> windows::core::Result<()> {
             str_to_bstr!($key, bstr);
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name(bstr) };
