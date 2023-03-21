@@ -1,11 +1,11 @@
 [package]
 name = "itunes-com"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["daladim"]
 description = "Bindings over iTunes COM API"
-repository = "https://github.com/daladim/apple-music-rs"
-documentation = "https://docs.rs/apple-music"
+repository = "https://github.com/daladim/itunes-com"
+documentation = "https://docs.rs/itunes_com"
 license = "MIT"
 readme = "README.md"
 keywords = ["iTunes", "API", "COM", "windows"]
