@@ -1,6 +1,6 @@
 [package]
 name = "itunes-com"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2021"
 authors = ["daladim"]
 description = "Bindings over iTunes COM API"
@@ -36,3 +36,5 @@ num-traits = { version = "0.2", optional = true }
 
 [package.metadata.docs.rs]
 features = ["wrappers", "num_enum"]
+default-target = "x86_64-pc-windows-msvc"
+targets = []
