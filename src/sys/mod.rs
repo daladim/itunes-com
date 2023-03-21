@@ -21,6 +21,7 @@ pub const ITUNES_APP_COM_GUID: windows::core::GUID = windows::core::GUID::from_u
 /// Re-exported type from windows-rs.
 pub use windows::{
     core::{BSTR, HRESULT},
+    Win32::System::Com::VARIANT,
     Win32::Foundation::VARIANT_BOOL,
     Win32::System::Ole::IEnumVARIANT,
 };

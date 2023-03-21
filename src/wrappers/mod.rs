@@ -16,13 +16,30 @@ use windows::core::Interface;
 use windows::Win32::Media::Multimedia::NS_E_PROPERTY_NOT_FOUND;
 
 use windows::Win32::System::Com::{CoInitializeEx, CoCreateInstance, CLSCTX_ALL, COINIT_MULTITHREADED};
-use windows::Win32::System::Com::VARIANT;
+use windows::Win32::System::Com::{VARIANT_0, VARIANT_0_0, VARIANT_0_0_0};
 
 type DATE = f64; // This type must be a joke. https://learn.microsoft.com/en-us/cpp/atl-mfc-shared/date-type?view=msvc-170
 type LONG = i32;
 
 use widestring::ucstring::U16CString;
 use num_traits::FromPrimitive;
+
+pub struct Variant<'a, T: 'a> {
+    inner: VARIANT,
+    lifetime: PhantomData<&'a T>,
+}
+
+impl<'a, T> Variant<'a, T> {
+    fn new(inner: VARIANT) -> Self {
+        Self { inner, lifetime: PhantomData }
+    }
+
+    /// Get the wrapped `VARIANT`
+    fn as_raw(&self) -> &VARIANT {
+        &self.inner
+    }
+}
+
 
 mod private {
     //! The only reason for this private module is to have a "private" trait in publicly exported types
@@ -179,12 +196,13 @@ macro_rules! set_long {
     };
 }
 
-macro_rules! set_variant {
+macro_rules! set_playlist {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $arg:ident )) => {
         ::paste::paste! {
             $(#[$attr])*
-            $vis fn [<set_ $func_name>](&mut self, $arg: &VARIANT) -> windows::core::Result<()> {
-                let result = unsafe{ self.com_object.[<set_ $func_name>]($arg as *const VARIANT) };
+            $vis fn [<set_ $func_name>](&mut self, $arg: &Playlist) -> windows::core::Result<()> {
+                let vplaylist = $arg.as_variant();
+                let result = unsafe{ self.com_object.[<set_ $func_name>](vplaylist.as_raw() as *const VARIANT) };
                 result.ok()
             }
         }
@@ -396,11 +414,11 @@ macro_rules! get_object_from_variant {
     };
     ($(#[$attr:meta])* $vis:vis $fn_name:ident ( $arg_name:ident ) -> $obj_type:ty as $inherited_type:ty) => {
         $(#[$attr])*
-        $vis fn $fn_name(&self, $arg_name:&VARIANT) -> windows::core::Result<$obj_type> {
+        $vis fn $fn_name<T>(&self, $arg_name:&Variant<T>) -> windows::core::Result<$obj_type> {
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
 
             let mut out_obj = None;
-            let result = unsafe{ inherited_obj.$fn_name($arg_name as *const VARIANT, &mut out_obj as *mut _) };
+            let result = unsafe{ inherited_obj.$fn_name($arg_name.as_raw() as *const VARIANT, &mut out_obj as *mut _) };
             result.ok()?;
 
             create_wrapped_object!($obj_type, out_obj)
@@ -547,6 +565,26 @@ pub trait IITObjectWrapper: private::ComObjectWrapper {
             playlistID,
             trackID,
             databaseID,
+        })
+    }
+
+    // Not sure whether the content of the Variant will be released when dropped.
+    // To be sure, let's assign it a lifetime anyway
+    /// Get a COM `VARIANT` pointing to this object
+    fn as_variant(&self) -> Variant<Self::WrappedType> {
+        let idispatch = self.com_object().cast::<windows::Win32::System::Com::IDispatch>().unwrap(); // unwrapping here is fine, every IITObject inherits from IDispatch
+
+        // See https://microsoft.public.vc.atl.narkive.com/nSoZZbkL/passing-pointers-using-a-variant
+        Variant::new(VARIANT{
+            Anonymous: VARIANT_0 {
+                Anonymous: std::mem::ManuallyDrop::new(VARIANT_0_0 {
+                    vt: windows::Win32::System::Com::VT_DISPATCH,
+                    Anonymous: VARIANT_0_0_0 {
+                        pdispVal: std::mem::ManuallyDrop::new(Some(idispatch)),
+                    },
+                    ..Default::default()
+                })
+            }
         })
     }
 
@@ -1444,7 +1482,7 @@ impl UserPlaylist {
         /// Creates a new folder in a folder playlist.
         pub CreateFolder(folderName) -> Playlist);
 
-    set_variant!(
+    set_playlist!(
         /// The parent of this playlist.
         pub Parent(iParentPlayList));
 
@@ -1602,7 +1640,7 @@ impl BrowserWindow {
         /// The currently selected playlist in the Source list.
         pub SelectedPlaylist -> Playlist);
 
-    set_variant!(
+    set_playlist!(
         /// The currently selected playlist in the Source list.
         pub SelectedPlaylist(iPlaylist));
 }
@@ -1946,10 +1984,11 @@ impl iTunes {
         pub CreateEQPreset(eqPresetName) -> EQPreset);
 
     /// Creates a new playlist in an existing source.
-    pub fn CreatePlaylistInSource(&self, playlistName: &str, iSource: &VARIANT) -> windows::core::Result<Playlist> {
+    pub fn CreatePlaylistInSource(&self, playlistName: &str, source: &Source) -> windows::core::Result<Playlist> {
         str_to_bstr!(playlistName, bstr);
+        let vsource = source.as_variant();
         let mut out_playlist = None;
-        let result = unsafe{ self.com_object.CreatePlaylistInSource(bstr, iSource as *const VARIANT, &mut out_playlist as *mut _) };
+        let result = unsafe{ self.com_object.CreatePlaylistInSource(bstr, vsource.as_raw() as *const VARIANT, &mut out_playlist as *mut _) };
         result.ok()?;
 
         create_wrapped_object!(Playlist, out_playlist)
@@ -1976,17 +2015,19 @@ impl iTunes {
     }
 
     /// True if the Shuffle property is writable for the specified playlist.
-    pub fn CanSetShuffle(&self, iPlaylist: &VARIANT) -> windows::core::Result<bool> {
+    pub fn CanSetShuffle(&self, iPlaylist: &Playlist) -> windows::core::Result<bool> {
+        let vplaylist = iPlaylist.as_variant();
         let mut out_bool = FALSE;
-        let result = unsafe{ self.com_object.CanSetShuffle(iPlaylist as *const VARIANT, &mut out_bool) };
+        let result = unsafe{ self.com_object.CanSetShuffle(vplaylist.as_raw() as *const VARIANT, &mut out_bool) };
         result.ok()?;
         Ok(out_bool.as_bool())
     }
 
     /// True if the SongRepeat property is writable for the specified playlist.
-    pub fn CanSetSongRepeat(&self, iPlaylist: &VARIANT) -> windows::core::Result<bool> {
+    pub fn CanSetSongRepeat(&self, iPlaylist: &Playlist) -> windows::core::Result<bool> {
+        let vplaylist = iPlaylist.as_variant();
         let mut out_bool = FALSE;
-        let result = unsafe{ self.com_object.CanSetSongRepeat(iPlaylist as *const VARIANT, &mut out_bool) };
+        let result = unsafe{ self.com_object.CanSetSongRepeat(vplaylist.as_raw() as *const VARIANT, &mut out_bool) };
         result.ok()?;
         Ok(out_bool.as_bool())
     }
@@ -2008,10 +2049,11 @@ impl iTunes {
         pub CreateFolder(folderName) -> Playlist);
 
     /// Creates a new folder in an existing source.
-    pub fn CreateFolderInSource(&self, folderName: &str, iSource: &VARIANT) -> windows::core::Result<Playlist> {
+    pub fn CreateFolderInSource(&self, folderName: &str, iSource: &Source) -> windows::core::Result<Playlist> {
         str_to_bstr!(folderName, bstr);
+        let vsource = iSource.as_variant();
         let mut out_playlist = None;
-        let result = unsafe{ self.com_object.CreateFolderInSource(bstr, iSource as *const VARIANT, &mut out_playlist as *mut _) };
+        let result = unsafe{ self.com_object.CreateFolderInSource(bstr, vsource.as_raw() as *const VARIANT, &mut out_playlist as *mut _) };
         result.ok()?;
 
         create_wrapped_object!(Playlist, out_playlist)
@@ -2025,11 +2067,11 @@ impl iTunes {
         /// The full path to the current iTunes library XML file.
         pub LibraryXMLPath);
 
-    /// Returns the high and low 32 bits of the persistent ID of the specified IITObject.
-    pub fn GetITObjectPersistentID(&self, iObject: &VARIANT) -> windows::core::Result<i64> {
+    /// Returns the persistent ID of the specified IITObject.
+    pub fn GetITObjectPersistentID<T>(&self, iObject: &Variant<T>) -> windows::core::Result<i64> {
         let mut highID: LONG = 0;
         let mut lowID: LONG = 0;
-        let result = unsafe{ self.com_object.GetITObjectPersistentIDs(iObject as *const VARIANT, &mut highID, &mut lowID) };
+        let result = unsafe{ self.com_object.GetITObjectPersistentIDs(iObject.as_raw() as *const VARIANT, &mut highID, &mut lowID) };
         result.ok()?;
 
         let bytes = [highID.to_le_bytes(), lowID.to_le_bytes()].concat();
