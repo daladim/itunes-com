@@ -40,6 +40,8 @@ impl<'a, T> Variant<'a, T> {
     }
 }
 
+pub type PersistentId = u64;
+
 
 mod private {
     //! The only reason for this private module is to have a "private" trait in publicly exported types
@@ -475,7 +477,7 @@ macro_rules! item_by_name {
 macro_rules! item_by_persistent_id {
     ($(#[$attr:meta])* $vis:vis $obj_type:ty) => {
         $(#[$attr])*
-        $vis fn ItemByPersistentID(&self, id: u64) -> windows::core::Result<$obj_type> {
+        $vis fn ItemByPersistentID(&self, id: PersistentId) -> windows::core::Result<$obj_type> {
             let b = id.to_le_bytes();
             let id_high = i32::from_le_bytes(b[..4].try_into().unwrap());
             let id_low = i32::from_le_bytes(b[4..].try_into().unwrap());
@@ -546,6 +548,9 @@ pub struct ObjectIDs {
 /// Many COM objects inherit from this class, which provides some extra methods
 pub trait IITObjectWrapper: private::ComObjectWrapper {
     /// Returns the four IDs that uniquely identify this object.
+    ///
+    /// These ID are "runtime" IDs, only valid for this current session. See [here for more info](https://web.archive.org/web/20201030012249/http://www.joshkunz.com/iTunesControl/interfaceIITObject.html)<br/>
+    /// Use [`iTunes::GetITObjectByID`] for the reverse operation.
     fn GetITObjectIDs(&self) -> windows::core::Result<ObjectIDs> {
         let mut sourceID: LONG = 0;
         let mut playlistID: LONG = 0;
@@ -2068,14 +2073,14 @@ impl iTunes {
         pub LibraryXMLPath);
 
     /// Returns the persistent ID of the specified IITObject.
-    pub fn GetITObjectPersistentID<T>(&self, iObject: &Variant<T>) -> windows::core::Result<i64> {
+    pub fn GetITObjectPersistentID<T>(&self, iObject: &Variant<T>) -> windows::core::Result<PersistentId> {
         let mut highID: LONG = 0;
         let mut lowID: LONG = 0;
         let result = unsafe{ self.com_object.GetITObjectPersistentIDs(iObject.as_raw() as *const VARIANT, &mut highID, &mut lowID) };
         result.ok()?;
 
         let bytes = [highID.to_le_bytes(), lowID.to_le_bytes()].concat();
-        Ok(i64::from_le_bytes(bytes.try_into().unwrap()))  // cannot panic, the slice has the correct size
+        Ok(PersistentId::from_le_bytes(bytes.try_into().unwrap()))  // cannot panic, the slice has the correct size
     }
 
     get_long!(
