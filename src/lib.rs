@@ -29,6 +29,10 @@
 //! ## Examples
 //!
 //! Examples are available in the `examples/` folder. Run them with `cargo run --example ... --all-features`.
+//!
+//! ## Notes
+//!
+//! This crate probably does not correctly work on 32-bit machines (run `cargo clippy --all-features` and see the Clippy errors).
 
 
 pub mod sys;
