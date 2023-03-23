@@ -5,6 +5,8 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
+use std::sync::Arc;
+
 pub mod iter;
 
 // We'd rather use the re-exported versions, so that they are available to our users.
@@ -52,8 +54,9 @@ mod private {
     pub trait ComObjectWrapper {
         type WrappedType: Interface;
 
-        fn from_com_object(com_object: Self::WrappedType) -> Self;
+        fn from_com_object(com_object: Self::WrappedType, iTunes: Arc<iTunes>) -> Self;
         fn com_object(&self) -> &Self::WrappedType;
+        fn iTunes(&self) -> Arc<iTunes>;
     }
 }
 use private::ComObjectWrapper;
@@ -68,19 +71,25 @@ macro_rules! com_wrapper_struct {
         $(#[$attr])*
         pub struct $struct_name {
             com_object: crate::sys::$com_type,
+            // Using an Arc rather than reference-counting a clone of the COM instance (because that's twice as fast, see the benchmark in the benches/ folder)
+            iTunes: Arc<iTunes>,
         }
 
         impl private::ComObjectWrapper for $struct_name {
             type WrappedType = $com_type;
 
-            fn from_com_object(com_object: crate::sys::$com_type) -> Self {
+            fn from_com_object(com_object: crate::sys::$com_type, iTunes: Arc<iTunes>) -> Self {
                 Self {
-                    com_object
+                    com_object, iTunes
                 }
             }
 
             fn com_object(&self) -> &crate::sys::$com_type {
                 &self.com_object
+            }
+
+            fn iTunes(&self) -> Arc<iTunes> {
+                Arc::clone(&self.iTunes)
             }
         }
     }
@@ -361,14 +370,14 @@ macro_rules! set_enum {
 }
 
 macro_rules! create_wrapped_object {
-    ($obj_type:ty, $out_obj:ident) => {
+    ($obj_type:ty, $out_obj:ident, $iTunes:ident) => {
         match $out_obj {
             None => Err(windows::core::Error::new(
                 NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
                 windows::h!("Item not found").clone(),
             )),
             Some(com_object) => Ok(
-                <$obj_type>::from_com_object(com_object)
+                <$obj_type>::from_com_object(com_object, $iTunes)
             )
         }
     };
@@ -386,7 +395,8 @@ macro_rules! get_object {
             let result = unsafe{ inherited_obj.$fn_name(&mut out_obj as *mut _) };
             result.ok()?;
 
-            create_wrapped_object!($obj_type, out_obj)
+            let iTunes_arc = self.iTunes();
+            create_wrapped_object!($obj_type, out_obj, iTunes_arc)
         }
     };
 }
@@ -405,7 +415,8 @@ macro_rules! get_object_from_str {
             let result = unsafe{ inherited_obj.$fn_name(bstr, &mut out_obj as *mut _) };
             result.ok()?;
 
-            create_wrapped_object!($obj_type, out_obj)
+            let iTunes_arc = self.iTunes();
+            create_wrapped_object!($obj_type, out_obj, iTunes_arc)
         }
     };
 }
@@ -423,7 +434,8 @@ macro_rules! get_object_from_variant {
             let result = unsafe{ inherited_obj.$fn_name($arg_name.as_raw() as *const VARIANT, &mut out_obj as *mut _) };
             result.ok()?;
 
-            create_wrapped_object!($obj_type, out_obj)
+            let iTunes_arc = self.iTunes();
+            create_wrapped_object!($obj_type, out_obj, iTunes_arc)
         }
     };
 }
@@ -441,7 +453,8 @@ macro_rules! get_object_from_long {
             let result = unsafe{ inherited_obj.$fn_name($arg_name, &mut out_obj as *mut _) };
             result.ok()?;
 
-            create_wrapped_object!($obj_type, out_obj)
+            let iTunes_arc = self.iTunes();
+            create_wrapped_object!($obj_type, out_obj, iTunes_arc)
         }
     };
 }
@@ -469,7 +482,8 @@ macro_rules! item_by_name {
             let result = unsafe{ self.com_object.ItemByName(bstr, &mut out_obj as *mut _) };
             result.ok()?;
 
-            create_wrapped_object!($obj_type, out_obj)
+            let iTunes_arc = self.iTunes();
+            create_wrapped_object!($obj_type, out_obj, iTunes_arc)
         }
     }
 }
@@ -486,7 +500,8 @@ macro_rules! item_by_persistent_id {
             let result = unsafe{ self.com_object.ItemByPersistentID(id_high, id_low, &mut out_obj as *mut _) };
             result.ok()?;
 
-            create_wrapped_object!($obj_type, out_obj)
+            let iTunes_arc = self.iTunes();
+            create_wrapped_object!($obj_type, out_obj, iTunes_arc)
         }
     }
 }
@@ -520,7 +535,8 @@ macro_rules! iterator {
                 let result = unsafe{ self.com_object.Item(index, &mut out_obj as *mut _) };
                 result.ok()?;
 
-                create_wrapped_object!($item_type, out_obj)
+                let iTunes_arc = self.iTunes();
+                create_wrapped_object!($item_type, out_obj, iTunes_arc)
             }
 
             // /// Returns an IEnumVARIANT object which can enumerate the collection.
@@ -593,6 +609,11 @@ pub trait IITObjectWrapper: private::ComObjectWrapper {
         })
     }
 
+    /// Convenience function around [`iTunes::GetITObjectPersistentID`]
+    fn persistent_id(&self) -> windows::core::Result<PersistentId> {
+        self.iTunes().GetITObjectPersistentID(&self.as_variant())
+    }
+
     get_bstr!(
         /// The name of the object.
         Name as IITObject);
@@ -630,13 +651,13 @@ pub enum PossibleIITObject {
 }
 
 impl PossibleIITObject {
-    fn from_com_object(com_object: IITObject) -> windows::core::Result<PossibleIITObject> {
+    fn from_com_object(com_object: IITObject, iTunes: Arc<iTunes>) -> windows::core::Result<PossibleIITObject> {
         if let Ok(source) = com_object.cast::<IITSource>() {
-            Ok(PossibleIITObject::Source(Source::from_com_object(source)))
+            Ok(PossibleIITObject::Source(Source::from_com_object(source, iTunes)))
         } else if let Ok(playlist) = com_object.cast::<IITPlaylist>() {
-            Ok(PossibleIITObject::Playlist(Playlist::from_com_object(playlist)))
+            Ok(PossibleIITObject::Playlist(Playlist::from_com_object(playlist, iTunes)))
         } else if let Ok(track) = com_object.cast::<IITTrack>() {
-            Ok(PossibleIITObject::Track(Track::from_com_object(track)))
+            Ok(PossibleIITObject::Track(Track::from_com_object(track, iTunes)))
         } else {
             Err(windows::core::Error::new(
                 NS_E_PROPERTY_NOT_FOUND, // this is the closest matching HRESULT I could find...
@@ -738,7 +759,8 @@ pub trait IITPlaylistWrapper: private::ComObjectWrapper {
         let result = unsafe{ inherited_obj.Search(searchText, searchFields, &mut out_obj as *mut _) };
         result.ok()?;
 
-        create_wrapped_object!(TrackCollection, out_obj)
+        let iTunes_arc = self.iTunes();
+        create_wrapped_object!(TrackCollection, out_obj, iTunes_arc)
     }
 
     get_enum!(
@@ -1058,7 +1080,8 @@ impl Track {
     /// In case the concrete COM object for this track actually is a derived `FileOrCDTrack`, this is a way to retrieve it
     pub fn as_file_or_cd_track(&self) -> windows::core::Result<FileOrCDTrack> {
         let foct = self.com_object.cast::<IITFileOrCDTrack>()?;
-        Ok(FileOrCDTrack::from_com_object(foct))
+        let iTunes_arc = self.iTunes();
+        Ok(FileOrCDTrack::from_com_object(foct, iTunes_arc))
     }
 }
 
@@ -1670,9 +1693,29 @@ pub struct PlayerButtonState {
     pub nextEnabled: bool,
 }
 
-com_wrapper_struct!(
-    /// Safe wrapper over a [`IiTunes`](crate::sys::IiTunes)
-    iTunes as IiTunes);
+/// Safe wrapper over a [`IiTunes`](crate::sys::IiTunes)
+pub struct iTunes {
+    com_object: crate::sys::IiTunes,
+}
+
+impl private::ComObjectWrapper for iTunes {
+    type WrappedType = crate::sys::IiTunes;
+
+    fn from_com_object(_com_object: crate::sys::IiTunes, _iTunes: Arc<iTunes>) -> Self {
+        // Nothing is supposed to build an iTunes instance, apart from iTunes::new()
+        panic!("This function is not supposed to be called");
+    }
+
+    fn com_object(&self) -> &crate::sys::IiTunes {
+        &self.com_object
+    }
+
+    fn iTunes(&self) -> Arc<iTunes> {
+        Arc::new(Self{
+            com_object: self.com_object.clone()
+        })
+    }
+}
 
 impl iTunes {
     /// Create a new COM object to communicate with iTunes
@@ -1772,7 +1815,8 @@ impl iTunes {
                 windows::h!("Item not found").clone(),
             )),
             Some(obj) => {
-                PossibleIITObject::from_com_object(obj)
+                let iTunes_arc = self.iTunes();
+                PossibleIITObject::from_com_object(obj, iTunes_arc)
             },
         }
     }
@@ -1996,7 +2040,8 @@ impl iTunes {
         let result = unsafe{ self.com_object.CreatePlaylistInSource(bstr, vsource.as_raw() as *const VARIANT, &mut out_playlist as *mut _) };
         result.ok()?;
 
-        create_wrapped_object!(Playlist, out_playlist)
+        let iTunes_arc = self.iTunes();
+        create_wrapped_object!(Playlist, out_playlist, iTunes_arc)
     }
 
     /// Retrieves the current state of the player buttons.
@@ -2061,7 +2106,8 @@ impl iTunes {
         let result = unsafe{ self.com_object.CreateFolderInSource(bstr, vsource.as_raw() as *const VARIANT, &mut out_playlist as *mut _) };
         result.ok()?;
 
-        create_wrapped_object!(Playlist, out_playlist)
+        let iTunes_arc = self.iTunes();
+        create_wrapped_object!(Playlist, out_playlist, iTunes_arc)
     }
 
     get_bool!(
@@ -2073,6 +2119,8 @@ impl iTunes {
         pub LibraryXMLPath);
 
     /// Returns the persistent ID of the specified IITObject.
+    ///
+    /// See also the convience function [`IITObjectWrapper::persistent_id`]
     pub fn GetITObjectPersistentID<T>(&self, iObject: &Variant<T>) -> windows::core::Result<PersistentId> {
         let mut highID: LONG = 0;
         let mut lowID: LONG = 0;
