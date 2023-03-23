@@ -8,6 +8,8 @@
 use std::sync::Arc;
 
 pub mod iter;
+pub mod types;
+use types::*;
 
 // We'd rather use the re-exported versions, so that they are available to our users.
 use crate::sys::*;
@@ -26,23 +28,6 @@ type LONG = i32;
 use widestring::ucstring::U16CString;
 use num_traits::FromPrimitive;
 
-pub struct Variant<'a, T: 'a> {
-    inner: VARIANT,
-    lifetime: PhantomData<&'a T>,
-}
-
-impl<'a, T> Variant<'a, T> {
-    fn new(inner: VARIANT) -> Self {
-        Self { inner, lifetime: PhantomData }
-    }
-
-    /// Get the wrapped `VARIANT`
-    fn as_raw(&self) -> &VARIANT {
-        &self.inner
-    }
-}
-
-pub type PersistentId = u64;
 
 
 mod private {
