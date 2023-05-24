@@ -46,6 +46,13 @@ mod private {
 }
 use private::ComObjectWrapper;
 
+pub trait ITunesRelatedObject: private::ComObjectWrapper {
+    /// Return the related iTunes instance this object is related to
+    fn iTunes_instance(&self) -> Arc<iTunes> {
+        self.iTunes()
+    }
+}
+
 macro_rules! com_wrapper_struct {
     ($(#[$attr:meta])* $struct_name:ident) => {
         ::paste::paste! {
@@ -77,6 +84,8 @@ macro_rules! com_wrapper_struct {
                 Arc::clone(&self.iTunes)
             }
         }
+
+        impl ITunesRelatedObject for $struct_name {}
     }
 }
 
