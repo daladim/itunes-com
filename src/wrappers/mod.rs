@@ -122,7 +122,7 @@ macro_rules! get_bstr {
 macro_rules! internal_set_bstr {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $(#[$attr])*
-        $vis fn $func_name(&mut self, $key: &str) -> windows::core::Result<()> {
+        $vis fn $func_name(&self, $key: &str) -> windows::core::Result<()> {
             str_to_bstr!($key, bstr);
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name(bstr) };
@@ -166,7 +166,7 @@ macro_rules! get_long {
 macro_rules! internal_set_long {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $(#[$attr])*
-        $vis fn $func_name(&mut self, $key: LONG) -> windows::core::Result<()> {
+        $vis fn $func_name(&self, $key: LONG) -> windows::core::Result<()> {
             let inherited_obj = self.com_object().cast::<$inherited_type>()?;
             let result = unsafe{ inherited_obj.$func_name($key) };
             result.ok()
@@ -196,7 +196,7 @@ macro_rules! set_playlist {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $arg:ident )) => {
         ::paste::paste! {
             $(#[$attr])*
-            $vis fn [<set_ $func_name>](&mut self, $arg: &Playlist) -> windows::core::Result<()> {
+            $vis fn [<set_ $func_name>](&self, $arg: &Playlist) -> windows::core::Result<()> {
                 let vplaylist = $arg.as_variant();
                 let result = unsafe{ self.com_object.[<set_ $func_name>](vplaylist.as_raw() as *const VARIANT) };
                 result.ok()
@@ -229,7 +229,7 @@ macro_rules! set_f64 {
     ($(#[$attr:meta])* $vis:vis $key:ident, $float_name:ty as $inherited_type:ty) => {
         ::paste::paste! {
             $(#[$attr])*
-            $vis fn [<set _$key>](&mut self, $key: $float_name) -> windows::core::Result<()> {
+            $vis fn [<set _$key>](&self, $key: $float_name) -> windows::core::Result<()> {
                 let inherited_obj = self.com_object().cast::<$inherited_type>()?;
                 let result = unsafe{ inherited_obj.[<set _$key>]($key) };
                 result.ok()
@@ -295,7 +295,7 @@ macro_rules! get_bool {
 macro_rules! internal_set_bool {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
         $(#[$attr])*
-        $vis fn $func_name(&mut self, $key: bool) -> windows::core::Result<()> {
+        $vis fn $func_name(&self, $key: bool) -> windows::core::Result<()> {
             let variant_bool = match $key {
                 true => crate::sys::TRUE,
                 false => crate::sys::FALSE,
@@ -345,7 +345,7 @@ macro_rules! set_enum {
     ($(#[$attr:meta])* $vis:vis $fn_name:ident, $enum_type:ty as $inherited_type:ty) => {
         ::paste::paste! {
             $(#[$attr])*
-            $vis fn [<set _$fn_name>](&mut self, value: $enum_type) -> windows::core::Result<()> {
+            $vis fn [<set _$fn_name>](&self, value: $enum_type) -> windows::core::Result<()> {
                 let inherited_obj = self.com_object().cast::<$inherited_type>()?;
                 let result = unsafe{ inherited_obj.[<set _$fn_name>](value) };
                 result.ok()
@@ -448,7 +448,7 @@ macro_rules! set_object {
     ($(#[$attr:meta])* $vis:vis $fn_name:ident, $obj_type:ty) => {
         ::paste::paste! {
             $(#[$attr])*
-            $vis fn [<set _$fn_name>](&mut self, data: $obj_type) -> windows::core::Result<()> {
+            $vis fn [<set _$fn_name>](&self, data: $obj_type) -> windows::core::Result<()> {
                 let object_to_set = data.com_object();
                 let result = unsafe{ self.com_object.[<set _$fn_name>](object_to_set as *const _) };
                 result.ok()

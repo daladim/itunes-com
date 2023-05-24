@@ -11,7 +11,7 @@ use itunes_com::wrappers::IITPlaylistWrapper;
 
 
 fn main() {
-    let mut iTunes = itunes_com::wrappers::iTunes::new().unwrap();
+    let iTunes = itunes_com::wrappers::iTunes::new().unwrap();
 
     iTunes.NextTrack().unwrap();
     iTunes.PlayFile(r"C:\My Music\Artist\Album\Title.mp3".into()).unwrap();
