@@ -1756,8 +1756,16 @@ impl private::ComObjectWrapper for iTunes {
 
 impl iTunes {
     /// Create a new COM object to communicate with iTunes
+    ///
+    /// # Remarks
+    ///
+    /// This should not be called from UI threads.
     pub fn new() -> windows::core::Result<Self> {
         unsafe {
+            // Note: from the docs (https://learn.microsoft.com/en-us/windows/win32/api/objbase/ne-objbase-coinit#remarks)
+            // The multi-threaded apartment is intended for use by non-GUI threads.
+            // Threads in multi-threaded apartments should not perform UI actions.
+            // This is because UI threads require a message pump, and COM does not pump messages for threads in a multi-threaded apartment.
             CoInitializeEx(None, COINIT_MULTITHREADED)?;
         }
 
@@ -2176,6 +2184,14 @@ impl iTunes {
         /// Returns the player's position within the currently playing track in milliseconds.
         pub PlayerPositionMS);
 }
+
+// We've initialized the COM library with COINIT_MULTITHREADED, so it is possible to call functions on the IITunes object from multiple threads.
+// However, the documentation (https://learn.microsoft.com/en-us/windows/win32/api/objbase/ne-objbase-coinit#remarks):
+// says that "This means, however, that the code for objects must enforce its own concurrency model, typically through the use of synchronization primitives, such as critical sections, semaphores, or mutexes"
+// Maybe we could assume Apple developers have done this.
+// Maybe not. We actually have no clue whether the underlying COM object is thread-safe.
+// So, let's not implement `Sync` blindly.
+// unsafe impl Sync for iTunes {}
 
 com_wrapper_struct!(
     /// Safe wrapper over a [`IITAudioCDPlaylist`](crate::sys::IITAudioCDPlaylist)
