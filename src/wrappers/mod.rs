@@ -1,4 +1,4 @@
-//! Safe wrappers over the COM API.
+//! Safe wrappers over the COM API. Available with the `wrappers` Cargo feature
 //!
 //! You usually want to start by creating an instance of the `iTunes` interface by [`iTunes::new`], then use its various methods.
 
