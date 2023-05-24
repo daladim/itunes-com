@@ -579,7 +579,7 @@ pub trait IITObjectWrapper: private::ComObjectWrapper {
         TrackDatabaseID as IITObject);
 }
 
-/// Enum of all structs that implement [`IITObjectWrapper`]
+/// Enum of all structs that directly inherit from [`IITObject`]
 pub enum PossibleIITObject {
     Source(Source),
     Playlist(Playlist),
@@ -1291,6 +1291,8 @@ com_wrapper_struct!(
     /// Safe wrapper over a [`IITLibraryPlaylist`](crate::sys::IITLibraryPlaylist)
     LibraryPlaylist);
 
+impl IITObjectWrapper for LibraryPlaylist {}
+
 impl IITPlaylistWrapper for LibraryPlaylist {}
 
 impl LibraryPlaylist {
@@ -1314,6 +1316,8 @@ impl LibraryPlaylist {
 com_wrapper_struct!(
     /// Safe wrapper over a [`IITURLTrack`](crate::sys::IITURLTrack)
     URLTrack);
+
+impl IITObjectWrapper for URLTrack {}
 
 impl IITTrackWrapper for URLTrack {}
 
@@ -1390,6 +1394,8 @@ impl URLTrack {
 com_wrapper_struct!(
     /// Safe wrapper over a [`IITUserPlaylist`](crate::sys::IITUserPlaylist)
     UserPlaylist);
+
+impl IITObjectWrapper for UserPlaylist {}
 
 impl IITPlaylistWrapper for UserPlaylist {}
 
@@ -2043,6 +2049,8 @@ com_wrapper_struct!(
     /// Safe wrapper over a [`IITAudioCDPlaylist`](crate::sys::IITAudioCDPlaylist)
     AudioCDPlaylist);
 
+impl IITObjectWrapper for AudioCDPlaylist {}
+
 impl IITPlaylistWrapper for AudioCDPlaylist {}
 
 impl AudioCDPlaylist {
@@ -2082,6 +2090,8 @@ impl AudioCDPlaylist {
 com_wrapper_struct!(
     /// Safe wrapper over a [`IITIPodSource`](crate::sys::IITIPodSource)
     IPodSource);
+
+impl IITObjectWrapper for IPodSource {}
 
 impl IPodSource {
     no_args!(
