@@ -762,6 +762,13 @@ iterator!(PlaylistCollection, Playlist);
 
 /// Several COM objects inherit from this class, which provides some extra methods
 pub trait IITPlaylistWrapper: private::ComObjectWrapper {
+    /// Cast this playlist to a [`UserPlaylist`] in case this is valid to do so
+    fn as_user_playlist(&self) -> Option<UserPlaylist> {
+        let com_user_pl = self.com_object().cast::<IITUserPlaylist>().ok()?;
+        let iTunes = self.iTunes();
+        Some(UserPlaylist::from_com_object(com_user_pl, iTunes))
+    }
+
     no_args!(
         /// Delete this playlist.
         Delete as IITPlaylist);
@@ -1108,10 +1115,10 @@ impl IITTrackWrapper for Track {}
 
 impl Track {
     /// In case the concrete COM object for this track actually is a derived `FileOrCDTrack`, this is a way to retrieve it
-    pub fn as_file_or_cd_track(&self) -> windows::core::Result<FileOrCDTrack> {
-        let foct = self.com_object.cast::<IITFileOrCDTrack>()?;
+    pub fn as_file_or_cd_track(&self) -> Option<FileOrCDTrack> {
+        let foct = self.com_object.cast::<IITFileOrCDTrack>().ok()?;
         let iTunes_arc = self.iTunes();
-        Ok(FileOrCDTrack::from_com_object(foct, iTunes_arc))
+        Some(FileOrCDTrack::from_com_object(foct, iTunes_arc))
     }
 }
 
