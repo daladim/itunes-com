@@ -460,7 +460,7 @@ macro_rules! set_object {
 macro_rules! item_by_name {
     ($(#[$attr:meta])* $vis:vis $obj_type:ty) => {
         $(#[$attr])*
-        $vis fn ItemByName(&self, name: String) -> windows::core::Result<$obj_type> {
+        $vis fn ItemByName(&self, name: &str) -> windows::core::Result<$obj_type> {
             str_to_bstr!(name, bstr);
 
             let mut out_obj = None;
