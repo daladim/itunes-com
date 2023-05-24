@@ -2101,6 +2101,8 @@ com_wrapper_struct!(
     /// Safe wrapper over a [`IITFileOrCDTrack`](crate::sys::IITFileOrCDTrack)
     FileOrCDTrack);
 
+impl IITObjectWrapper for FileOrCDTrack {}
+
 impl IITTrackWrapper for FileOrCDTrack {}
 
 impl FileOrCDTrack {
