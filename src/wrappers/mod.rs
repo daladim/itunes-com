@@ -478,8 +478,8 @@ macro_rules! item_by_persistent_id {
         $(#[$attr])*
         $vis fn ItemByPersistentID(&self, id: PersistentId) -> windows::core::Result<$obj_type> {
             let b = id.to_le_bytes();
-            let id_high = i32::from_le_bytes(b[..4].try_into().unwrap());
-            let id_low = i32::from_le_bytes(b[4..].try_into().unwrap());
+            let id_low = i32::from_le_bytes(b[..4].try_into().unwrap());
+            let id_high = i32::from_le_bytes(b[4..].try_into().unwrap());
 
             let mut out_obj = None;
             let result = unsafe{ self.com_object.ItemByPersistentID(id_high, id_low, &mut out_obj as *mut _) };
@@ -2112,7 +2112,7 @@ impl iTunes {
         let result = unsafe{ self.com_object.GetITObjectPersistentIDs(iObject.as_raw() as *const VARIANT, &mut highID, &mut lowID) };
         result.ok()?;
 
-        let bytes = [highID.to_le_bytes(), lowID.to_le_bytes()].concat();
+        let bytes = [lowID.to_le_bytes(), highID.to_le_bytes()].concat();
         Ok(PersistentId::from_le_bytes(bytes.try_into().unwrap()))  // cannot panic, the slice has the correct size
     }
 
@@ -2349,7 +2349,7 @@ impl FileOrCDTrack {
         let result = unsafe{ self.com_object.Size64Low(&mut lowSize) };
         result.ok()?;
 
-        let bytes = [highSize.to_le_bytes(), lowSize.to_le_bytes()].concat();
+        let bytes = [lowSize.to_le_bytes(), highSize.to_le_bytes()].concat();
         Ok(i64::from_le_bytes(bytes.try_into().unwrap())) // cannot panic, the slice has the correct size
     }
 
