@@ -162,6 +162,23 @@ macro_rules! get_long {
     };
 }
 
+macro_rules! get_rating {
+    ($(#[$attr:meta])* $vis:vis $func_name:ident) => {
+        get_rating!($(#[$attr])* $vis $func_name as <Self as ComObjectWrapper>::WrappedType);
+    };
+    ($(#[$attr:meta])* $vis:vis $func_name:ident as $inherited_type:ty) => {
+        $(#[$attr])*
+        $vis fn $func_name(&self) -> windows::core::Result<Rating> {
+            let mut value: LONG = 0;
+            let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+            let result = unsafe{ inherited_obj.$func_name(&mut value as *mut LONG) };
+            result.ok()?;
+
+            Ok(value.into())
+        }
+    };
+}
+
 
 macro_rules! internal_set_long {
     ($(#[$attr:meta])* $vis:vis $func_name:ident ( $key:ident ) as $inherited_type:ty) => {
@@ -188,6 +205,25 @@ macro_rules! set_long {
     ($(#[$attr:meta])* $vis:vis $key:ident, no_set_prefix) => {
         ::paste::paste! {
             internal_set_long!($(#[$attr])* $vis $key ($key) as <Self as ComObjectWrapper>::WrappedType);
+        }
+    };
+}
+
+macro_rules! set_rating {
+    ($(#[$attr:meta])* $vis:vis $key:ident) => {
+        ::paste::paste! {
+            set_rating!($(#[$attr])* $vis $key as <Self as ComObjectWrapper>::WrappedType);
+        }
+    };
+    ($(#[$attr:meta])* $vis:vis $key:ident as $inherited_type:ty) => {
+        ::paste::paste! {
+            $(#[$attr])*
+            $vis fn [<set_ $key>](&self, $key: Rating) -> windows::core::Result<()> {
+                let long_rating = $key.into();
+                let inherited_obj = self.com_object().cast::<$inherited_type>()?;
+                let result = unsafe{ inherited_obj.[<set_ $key>](long_rating) };
+                result.ok()
+            }
         }
     };
 }
@@ -988,12 +1024,12 @@ pub trait IITTrackWrapper: private::ComObjectWrapper {
         /// The play order index of the track in the owner playlist (1-based).
         PlayOrderIndex as IITTrack);
 
-    get_long!(
-        /// The rating of the track (0 to 100).
+    get_rating!(
+        /// The rating of the track.
         Rating as IITTrack);
 
-    set_long!(
-        /// The rating of the track (0 to 100).
+    set_rating!(
+        /// The rating of the track.
         Rating as IITTrack);
 
     get_long!(
@@ -1421,12 +1457,12 @@ impl URLTrack {
         /// Reveal the track in the main browser window.
         pub Reveal);
 
-    get_long!(
-        /// The user or computed rating of the album that this track belongs to (0 to 100).
+    get_rating!(
+        /// The user or computed rating of the album that this track belongs to.
         pub AlbumRating);
 
-    set_long!(
-        /// The user or computed rating of the album that this track belongs to (0 to 100).
+    set_rating!(
+        /// The user or computed rating of the album that this track belongs to.
         pub AlbumRating);
 
     get_enum!(
@@ -2413,12 +2449,12 @@ impl FileOrCDTrack {
         /// Reveal the track in the main browser window.
         pub Reveal);
 
-    get_long!(
-        /// The user or computed rating of the album that this track belongs to (0 to 100).
+    get_rating!(
+        /// The user or computed rating of the album that this track belongs to.
         pub AlbumRating);
 
-    set_long!(
-        /// The user or computed rating of the album that this track belongs to (0 to 100).
+    set_rating!(
+        /// The user or computed rating of the album that this track belongs to.
         pub AlbumRating);
 
     get_enum!(
